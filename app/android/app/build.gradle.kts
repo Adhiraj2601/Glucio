@@ -17,7 +17,7 @@ android {
     defaultConfig {
         // Application ID locked to com.glucio.app permanently
         applicationId = "com.glucio.app"
-        // minSdk set to 21 as required by mobile_scanner and Google ML Kit
+        // minSdk explicitly locked to 21 as required by mobile_scanner and Google ML Kit
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION

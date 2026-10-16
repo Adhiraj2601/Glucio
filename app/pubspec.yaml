@@ -33,6 +33,9 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   flutter_dotenv: ^5.2.1
+  mobile_scanner: ^7.4.2
+  flutter_riverpod: ^3.4.3
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
@@ -45,6 +48,7 @@ flutter:
 
   assets:
     - .env
+    - assets/seed_products.json
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

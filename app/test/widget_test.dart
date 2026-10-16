@@ -1,15 +1,20 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glucio/main.dart';
 
 void main() {
-  testWidgets('Glucio Slice 0 smoke test', (WidgetTester tester) async {
-    // Build GlucioApp and trigger a frame
-    await tester.pumpWidget(const GlucioApp());
+  testWidgets('Glucio Slice 1 smoke test - HomeScreen renders properly', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: GlucioApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-    // Verify app title and Slice 0 elements are rendered
+    // Verify app title and main actions
     expect(find.text('Glucio'), findsOneWidget);
-    expect(find.text('Slice 0: Environment & Scaffold Ready'), findsOneWidget);
-    expect(find.text('com.glucio.app (Fixed)'), findsOneWidget);
-    expect(find.text('Configured in Manifest'), findsNWidgets(2));
+    expect(find.text('Scan Food Barcode'), findsOneWidget);
+    expect(find.text('Enter Barcode Manually (Debug / Testing)'), findsOneWidget);
+    expect(find.text('Parle-G Gluco Biscuits'), findsOneWidget);
   });
 }
