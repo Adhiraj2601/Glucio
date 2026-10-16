@@ -10,7 +10,15 @@ $env:Path = "$flutterBin;$sdkPath\platform-tools;$env:Path"
 Write-Host "==> Checking ADB server and connected devices..."
 & $adb start-server
 
-$adbOutput = & $adb devices
+# Allow up to 5 seconds for USB handshake if device is in 'authorizing' state
+$adbOutput = ""
+for ($i = 0; $i -lt 5; $i++) {
+    $adbOutput = & $adb devices
+    if ($adbOutput -match '\tdevice(\r?\n|$)') {
+        break
+    }
+    Start-Sleep -Seconds 1
+}
 Write-Host $adbOutput
 
 $deviceLines = $adbOutput -split "`r?`n" | Where-Object { $_ -match '\t(device|unauthorized|offline)$' }

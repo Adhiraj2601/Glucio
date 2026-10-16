@@ -24,8 +24,18 @@ if (!$name.EndsWith(".png")) {
 
 $targetPath = Join-Path $screenshotsDir $name
 
+& $adb start-server
+for ($i = 0; $i -lt 5; $i++) {
+    $devices = & $adb devices
+    if ($devices -match '\tdevice(\r?\n|$)') { break }
+    Start-Sleep -Seconds 1
+}
+
 Write-Host "Capturing screenshot to $targetPath..."
-& $adb exec-out screencap -p > $targetPath
+& $adb wait-for-device
+& $adb shell screencap -p /sdcard/glucio_temp_cap.png
+& $adb pull /sdcard/glucio_temp_cap.png $targetPath
+& $adb shell rm /sdcard/glucio_temp_cap.png
 
 if (Test-Path $targetPath) {
     $size = (Get-Item $targetPath).Length
