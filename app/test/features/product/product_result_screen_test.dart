@@ -93,8 +93,8 @@ void main() {
       expect(find.text('Parle-G Original Gluco Biscuits'), findsOneWidget);
       expect(find.text('Parle'), findsNWidgets(2));
 
-      // Hero sentence contains biscuits and sugar phrase
-      expect(find.textContaining('of this biscuits has'), findsOneWidget);
+      // Hero sentence contains portion and sugar phrase
+      expect(find.textContaining('has about'), findsOneWidget);
 
       // Portion chips exist
       expect(find.text('1 biscuit'), findsOneWidget);

@@ -6,11 +6,15 @@ import '../../../../core/utils/sugar_calculator.dart';
 /// Features Neo-brutalist thick black outlines and hard offset shadows.
 class SugarProgressBar extends StatelessWidget {
   final double? sugarGrams;
+  final double? sugarPer100;
+  final bool isLiquid;
   final double dailyLimitGrams;
 
   const SugarProgressBar({
     super.key,
     required this.sugarGrams,
+    this.sugarPer100,
+    this.isLiquid = false,
     this.dailyLimitGrams = 25.0,
   });
 
@@ -25,8 +29,17 @@ class SugarProgressBar extends StatelessWidget {
       grams,
       dailyLimitGrams: dailyLimitGrams,
     )!;
-    final color = SugarCalculator.getSeverityColor(percent);
-    final label = SugarCalculator.getSeverityLabel(percent);
+    final trackColor = SugarCalculator.getSeverityColor(percent);
+
+    // Food density badge is calculated on per-100g / per-100ml basis for honesty,
+    // preventing small portions of high-sugar foods (like ketchup) from showing a false "Low Sugar" badge.
+    final badgeLabel = sugarPer100 != null
+        ? SugarCalculator.getFoodSugarDensityLabel(sugarPer100, isLiquid: isLiquid)
+        : SugarCalculator.getSeverityLabel(percent);
+    final badgeColor = sugarPer100 != null
+        ? SugarCalculator.getFoodSugarDensityColor(sugarPer100, isLiquid: isLiquid)
+        : trackColor;
+
     final progressClamped = (percent / 100.0).clamp(0.0, 1.0);
 
     return Container(
@@ -53,12 +66,12 @@ class SugarProgressBar extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: color,
+                  color: badgeColor,
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: GlucioTheme.inkBlack, width: 2),
                 ),
                 child: Text(
-                  label,
+                  badgeLabel,
                   style: const TextStyle(
                     fontFamily: GlucioTheme.fontBody,
                     color: Colors.white,
@@ -93,7 +106,7 @@ class SugarProgressBar extends StatelessWidget {
                     widthFactor: progressClamped,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: color,
+                        color: trackColor,
                       ),
                     ),
                   ),
@@ -110,7 +123,7 @@ class SugarProgressBar extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: GlucioTheme.fontBody,
                   fontWeight: FontWeight.bold,
-                  color: color,
+                  color: trackColor,
                   fontSize: 13,
                 ),
               ),
@@ -131,7 +144,7 @@ class SugarProgressBar extends StatelessWidget {
               '⚠️ Exceeds entire daily recommended sugar limit by ${(percent - 100).toStringAsFixed(0)}%!',
               style: TextStyle(
                 fontFamily: GlucioTheme.fontBody,
-                color: color,
+                color: trackColor,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),

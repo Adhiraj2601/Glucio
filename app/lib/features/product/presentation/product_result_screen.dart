@@ -65,13 +65,11 @@ class _ProductResultScreenState extends State<ProductResultScreen> {
     }
 
     final sugarPhrase = SugarCalculator.formatTeaspoonsPlain(teaspoons, isVerifiedZero: p.isVerifiedZero);
-    final categoryNoun = p.category.isNotEmpty ? p.category.toLowerCase() : 'product';
 
     if (_multiplier == 1) {
-      return '${portion.label} of this $categoryNoun has $sugarPhrase of sugar';
+      return '${portion.label} has $sugarPhrase of sugar';
     } else {
-      final totalAmount = (portion.amount * _multiplier).toStringAsFixed(0);
-      return '$_multiplier × ${portion.label} ($totalAmount${portion.basis}) of this $categoryNoun has $sugarPhrase of sugar';
+      return '$_multiplier × ${portion.label} has $sugarPhrase of sugar';
     }
   }
 
@@ -287,6 +285,7 @@ class _ProductResultScreenState extends State<ProductResultScreen> {
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontFamily: GlucioTheme.fontDisplay,
+                        fontFamilyFallback: [GlucioTheme.fontBody, 'Roboto', 'sans-serif'],
                         fontSize: 22,
                         color: GlucioTheme.inkBlack,
                         height: 1.25,
@@ -302,25 +301,32 @@ class _ProductResultScreenState extends State<ProductResultScreen> {
                         color: Colors.black54,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 2,
-                      color: GlucioTheme.inkBlack,
-                    ),
-                    const SizedBox(height: 16),
+                    // Only render divider and cubes when sugar is 1 teaspoon or more
+                    if ((currentTeaspoons ?? 0.0) >= 1.0) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        height: 2,
+                        color: GlucioTheme.inkBlack,
+                      ),
+                      const SizedBox(height: 16),
 
-                    // Visual Sugar Cubes (capped at 12 cubes + "+N more")
-                    SugarCubeWidget(
-                      teaspoons: currentTeaspoons ?? 0.0,
-                      activeColor: severityColor,
-                    ),
+                      // Visual Sugar Cubes (capped at 12 cubes + "+N more")
+                      SugarCubeWidget(
+                        teaspoons: currentTeaspoons ?? 0.0,
+                        activeColor: severityColor,
+                      ),
+                    ],
                   ],
                 ),
               ),
               const SizedBox(height: 16),
 
               // Thick black-outlined Daily Limit Progress Bar
-              SugarProgressBar(sugarGrams: currentSugarG),
+              SugarProgressBar(
+                sugarGrams: currentSugarG,
+                sugarPer100: p.sugarPer100,
+                isLiquid: p.sugarBasis.contains('ml'),
+              ),
               const SizedBox(height: 16),
 
               // Hidden Sugar Alert Banner (for savory foods with sugar)

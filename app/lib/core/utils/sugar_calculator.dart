@@ -19,47 +19,74 @@ class SugarCalculator {
 
   /// Plain-language rounding for display:
   /// - 0: "No sugar" (if verified zero)
-  /// - 0.1 to 0.3: "less than ¼ teaspoon"
-  /// - 0.4 to 0.6: "about ½ teaspoon"
-  /// - 0.7 to 0.85: "about ¾ teaspoon"
-  /// - 0.9 to 1.15: "about 1 teaspoon"
-  /// - > 1.15: round to nearest half or quarter with simple glyphs (1½, 2¼, 3)
+  /// - < 0.18: "less than ¼ teaspoon"
+  /// - 0.18 to 0.29: "about ¼ teaspoon"
+  /// - 0.29 to 0.42: "about ⅓ teaspoon" (e.g. 1.3g ketchup -> 0.325 tsp)
+  /// - 0.42 to 0.58: "about ½ teaspoon" (only rounds to half when truly closer)
+  /// - 0.58 to 0.71: "about ⅔ teaspoon"
+  /// - 0.71 to 0.88: "about ¾ teaspoon"
+  /// - 0.88 to 1.15: "about 1 teaspoon"
+  /// - > 1.15: round to nearest whole or fractional glyph (¼, ⅓, ½, ⅔, ¾)
   static String formatTeaspoonsPlain(double? teaspoons, {bool isVerifiedZero = false}) {
     if (teaspoons == null) return 'Sugar data missing';
     if (teaspoons <= 0.05) {
       return isVerifiedZero ? 'No sugar' : 'less than ¼ teaspoon';
     }
 
-    if (teaspoons <= 0.30) {
+    if (teaspoons < 0.18) {
       return 'less than ¼ teaspoon';
-    } else if (teaspoons <= 0.65) {
+    } else if (teaspoons < 0.29) {
+      return 'about ¼ teaspoon';
+    } else if (teaspoons < 0.42) {
+      return 'about ⅓ teaspoon';
+    } else if (teaspoons < 0.58) {
       return 'about ½ teaspoon';
-    } else if (teaspoons <= 0.875) {
+    } else if (teaspoons < 0.71) {
+      return 'about ⅔ teaspoon';
+    } else if (teaspoons < 0.88) {
       return 'about ¾ teaspoon';
     } else if (teaspoons <= 1.15) {
       return 'about 1 teaspoon';
     }
 
-    // > 1.15: round to nearest quarter (0.25)
-    final rounded = (teaspoons * 4).round() / 4.0;
-    final whole = rounded.floor();
-    final fraction = rounded - whole;
+    // > 1.15: find nearest candidate among whole, ¼, ⅓, ½, ⅔, ¾
+    final whole = teaspoons.floor();
+    final fraction = teaspoons - whole;
 
-    String fractionGlyph = '';
-    if ((fraction - 0.25).abs() < 0.01) {
-      fractionGlyph = '¼';
-    } else if ((fraction - 0.50).abs() < 0.01) {
-      fractionGlyph = '½';
-    } else if ((fraction - 0.75).abs() < 0.01) {
-      fractionGlyph = '¾';
+    const candidates = [
+      (0.0, ''),
+      (0.25, '¼'),
+      (1.0 / 3.0, '⅓'),
+      (0.50, '½'),
+      (2.0 / 3.0, '⅔'),
+      (0.75, '¾'),
+      (1.0, 'NEXT_WHOLE'),
+    ];
+
+    double minDiff = 999.0;
+    String bestGlyph = '';
+    int adjustedWhole = whole;
+
+    for (final candidate in candidates) {
+      final diff = (fraction - candidate.$1).abs();
+      if (diff < minDiff) {
+        minDiff = diff;
+        if (candidate.$2 == 'NEXT_WHOLE') {
+          adjustedWhole = whole + 1;
+          bestGlyph = '';
+        } else {
+          adjustedWhole = whole;
+          bestGlyph = candidate.$2;
+        }
+      }
     }
 
-    if (fractionGlyph.isEmpty) {
-      return 'about $whole ${whole == 1 ? "teaspoon" : "teaspoons"}';
-    } else if (whole == 0) {
-      return 'about $fractionGlyph teaspoon';
+    if (bestGlyph.isEmpty) {
+      return 'about $adjustedWhole ${adjustedWhole == 1 ? "teaspoon" : "teaspoons"}';
+    } else if (adjustedWhole == 0) {
+      return 'about $bestGlyph teaspoon';
     } else {
-      return 'about $whole$fractionGlyph teaspoons';
+      return 'about $adjustedWhole$bestGlyph teaspoons';
     }
   }
 
@@ -112,6 +139,40 @@ class SugarCalculator {
       return 'Moderate Sugar';
     } else {
       return 'High Sugar';
+    }
+  }
+
+  /// Categorizes food sugar density based on per-100g (or per-100ml) nutritional content.
+  /// Standard international and Indian FSSAI traffic light criteria:
+  /// - Low Sugar: <= 5g/100g (or <= 2.5g/100ml for liquids)
+  /// - Moderate Sugar: > 5g and <= 20g/100g (or > 2.5g and <= 10g/100ml for liquids)
+  /// - High Sugar: > 20g/100g (or > 10g/100ml for liquids)
+  static String getFoodSugarDensityLabel(double? sugarPer100, {bool isLiquid = false}) {
+    if (sugarPer100 == null) return 'Sugar Data Missing';
+    final lowCutoff = isLiquid ? 2.5 : 5.0;
+    final highCutoff = isLiquid ? 10.0 : 20.0;
+
+    if (sugarPer100 <= lowCutoff) {
+      return 'Low Sugar';
+    } else if (sugarPer100 <= highCutoff) {
+      return 'Moderate Sugar';
+    } else {
+      return 'High Sugar';
+    }
+  }
+
+  /// Returns the color associated with the food sugar density rating.
+  static Color getFoodSugarDensityColor(double? sugarPer100, {bool isLiquid = false}) {
+    if (sugarPer100 == null) return GlucioTheme.levelMissing;
+    final lowCutoff = isLiquid ? 2.5 : 5.0;
+    final highCutoff = isLiquid ? 10.0 : 20.0;
+
+    if (sugarPer100 <= lowCutoff) {
+      return GlucioTheme.levelLow;
+    } else if (sugarPer100 <= highCutoff) {
+      return GlucioTheme.levelMedium;
+    } else {
+      return GlucioTheme.levelHigh;
     }
   }
 

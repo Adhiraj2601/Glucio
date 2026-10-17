@@ -203,13 +203,6 @@
         "source": "label"
       },
       {
-        "label": "1 serving",
-        "amount": 15.0,
-        "basis": "g",
-        "kind": "serving",
-        "source": "label"
-      },
-      {
         "label": "Whole pack",
         "amount": 500.0,
         "basis": "g",

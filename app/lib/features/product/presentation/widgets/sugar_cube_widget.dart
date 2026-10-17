@@ -23,7 +23,9 @@ class SugarCubeWidget extends StatelessWidget {
     final displayFull = fullCubes > 12 ? 12 : fullCubes;
     final hasOverflow = fullCubes > 12;
 
-    if (teaspoons <= 0) {
+    // Only render cubes when the sugar is 1 teaspoon or more.
+    // For small amounts (< 1 tsp), omit the single fraction cube icon.
+    if (teaspoons < 1.0) {
       return const SizedBox.shrink();
     }
 
@@ -63,16 +65,6 @@ class SugarCubeWidget extends StatelessWidget {
                 ),
               ),
           ],
-        ),
-        const SizedBox(height: 10),
-        const Text(
-          '1 Cube = 1 Teaspoon = 4.0g sugar',
-          style: TextStyle(
-            fontFamily: GlucioTheme.fontBody,
-            fontSize: 11,
-            color: Colors.black54,
-            fontWeight: FontWeight.w600,
-          ),
         ),
       ],
     );

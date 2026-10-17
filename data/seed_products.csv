@@ -4,7 +4,7 @@ barcode,name,brand,category,pack_size_g,serving_size_g,sugar_per_100g,added_suga
 8901725181222,Haldiram's Alu Bhujia,Haldiram's,namkeen,150,30,2.1,,per_100g,1 handful=25|1 serving=30|Whole pack=150,false,seed-unverified,false
 7622201750244,Oreo Original Vanilla Creme Biscuits,Cadbury,biscuits,120,28.5,38.0,36.5,per_100g,1 biscuit=11.4|1 serving=28.5|Whole pack=120,false,seed-unverified,false
 8901491101837,Lay's India's Magic Masala Chips,Lay's,chips,50,30,3.5,,per_100g,1 handful=25|1 serving=30|Whole pack=50,false,seed-unverified,false
-8901030383458,Kissan Fresh Tomato Ketchup,Kissan,sauces,500,15,25.4,24.0,per_100g,1 tsp=5|1 tbsp=15|1 serving=15|Whole pack=500,true,seed-unverified,false
+8901030383458,Kissan Fresh Tomato Ketchup,Kissan,sauces,500,15,25.4,24.0,per_100g,1 tsp=5|1 tbsp=15|Whole pack=500,true,seed-unverified,false
 8901063142213,Britannia Good Day Butter Biscuits,Britannia,biscuits,100,20,22.0,20.0,per_100g,1 biscuit=10|1 serving=20|Whole pack=100,false,seed-unverified,false
 8901262010016,Amul Kool Elaichi Flavoured Milk,Amul,beverage,180,180,9.0,5.0,per_100ml,1 glass=180|Whole pack=180,false,seed-unverified,false
 8901719102011,Frooti Mango Drink,Parle Agro,beverage,150,150,13.2,12.5,per_100ml,1 glass=150|Whole pack=150,false,seed-unverified,false

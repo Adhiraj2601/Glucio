@@ -104,19 +104,24 @@ class PortionBuilder {
       }
     }
 
-    // 4. Add "1 serving" from label
+    // 4. Add "1 serving" from label if not redundant with an existing portion of identical amount
     if (servingSize > 0) {
-      final servingLabel = (servingDescription != null && servingDescription.isNotEmpty)
-          ? '1 serving ($servingDescription)'
-          : '1 serving (${servingSize.toStringAsFixed(0)}$basis)';
-      if (!result.containsKey(servingLabel.toLowerCase())) {
-        result[servingLabel.toLowerCase()] = Portion(
-          label: servingLabel,
-          amount: servingSize,
-          basis: basis,
-          kind: 'serving',
-          source: 'label',
-        );
+      final alreadyHasSameAmount = result.values.any(
+        (p) => (p.amount - servingSize).abs() < 0.1,
+      );
+      if (!alreadyHasSameAmount) {
+        final servingLabel = (servingDescription != null && servingDescription.isNotEmpty)
+            ? '1 serving ($servingDescription)'
+            : '1 serving (${servingSize.toStringAsFixed(0)}$basis)';
+        if (!result.containsKey(servingLabel.toLowerCase())) {
+          result[servingLabel.toLowerCase()] = Portion(
+            label: servingLabel,
+            amount: servingSize,
+            basis: basis,
+            kind: 'serving',
+            source: 'label',
+          );
+        }
       }
     }
 

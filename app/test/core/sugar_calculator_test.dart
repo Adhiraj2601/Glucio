@@ -30,29 +30,56 @@ void main() {
       expect(SugarCalculator.formatTeaspoonsPlain(0.0, isVerifiedZero: false), 'less than ¼ teaspoon');
     });
 
-    test('formats small amounts (< 0.3 tsp) as less than ¼ teaspoon', () {
+    test('formats small amounts (< 0.18 tsp) as less than ¼ teaspoon', () {
       expect(SugarCalculator.formatTeaspoonsPlain(0.15), 'less than ¼ teaspoon');
-      expect(SugarCalculator.formatTeaspoonsPlain(0.25), 'less than ¼ teaspoon');
     });
 
-    test('formats half teaspoon (0.4 - 0.65)', () {
+    test('formats quarter teaspoon (0.18 - 0.29)', () {
+      expect(SugarCalculator.formatTeaspoonsPlain(0.25), 'about ¼ teaspoon');
+    });
+
+    test('formats one third teaspoon (0.29 - 0.42), e.g. 1.3g ketchup (0.325 tsp)', () {
+      expect(SugarCalculator.formatTeaspoonsPlain(0.325), 'about ⅓ teaspoon');
+    });
+
+    test('formats half teaspoon (0.42 - 0.58) without rounding up early', () {
       expect(SugarCalculator.formatTeaspoonsPlain(0.5), 'about ½ teaspoon');
     });
 
-    test('formats three quarters teaspoon (0.7 - 0.85)', () {
+    test('formats two thirds teaspoon (0.58 - 0.71)', () {
+      expect(SugarCalculator.formatTeaspoonsPlain(0.667), 'about ⅔ teaspoon');
+    });
+
+    test('formats three quarters teaspoon (0.71 - 0.88)', () {
       expect(SugarCalculator.formatTeaspoonsPlain(0.75), 'about ¾ teaspoon');
     });
 
-    test('formats 1 teaspoon (0.9 - 1.15)', () {
+    test('formats 1 teaspoon (0.88 - 1.15)', () {
       expect(SugarCalculator.formatTeaspoonsPlain(1.0), 'about 1 teaspoon');
       expect(SugarCalculator.formatTeaspoonsPlain(1.1), 'about 1 teaspoon');
     });
 
-    test('formats fractions > 1.15 with glyphs (1½, 2¼, 3)', () {
+    test('formats fractions > 1.15 with glyphs (1⅓, 1½, 2¼, 3)', () {
+      expect(SugarCalculator.formatTeaspoonsPlain(1.33), 'about 1⅓ teaspoons');
       expect(SugarCalculator.formatTeaspoonsPlain(1.5), 'about 1½ teaspoons');
       expect(SugarCalculator.formatTeaspoonsPlain(2.25), 'about 2¼ teaspoons');
       expect(SugarCalculator.formatTeaspoonsPlain(3.0), 'about 3 teaspoons');
       expect(SugarCalculator.formatTeaspoonsPlain(3.75), 'about 3¾ teaspoons');
+    });
+  });
+
+  group('SugarCalculator - Food Sugar Density (Per 100g/ml)', () {
+    test('grades solids correctly based on 5g/20g thresholds', () {
+      expect(SugarCalculator.getFoodSugarDensityLabel(2.1), 'Low Sugar');
+      expect(SugarCalculator.getFoodSugarDensityLabel(12.0), 'Moderate Sugar');
+      expect(SugarCalculator.getFoodSugarDensityLabel(25.4), 'High Sugar');
+      expect(SugarCalculator.getFoodSugarDensityLabel(null), 'Sugar Data Missing');
+    });
+
+    test('grades liquids correctly based on 2.5g/10g thresholds', () {
+      expect(SugarCalculator.getFoodSugarDensityLabel(2.0, isLiquid: true), 'Low Sugar');
+      expect(SugarCalculator.getFoodSugarDensityLabel(6.0, isLiquid: true), 'Moderate Sugar');
+      expect(SugarCalculator.getFoodSugarDensityLabel(10.6, isLiquid: true), 'High Sugar');
     });
   });
 
