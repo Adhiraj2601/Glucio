@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/glucio_theme.dart';
 import '../../../../core/utils/sugar_calculator.dart';
 
 /// Progress bar widget showing sugar intake relative to the WHO 25g daily limit.
+/// Features Neo-brutalist thick black outlines and hard offset shadows.
 class SugarProgressBar extends StatelessWidget {
-  final double sugarGrams;
+  final double? sugarGrams;
   final double dailyLimitGrams;
 
   const SugarProgressBar({
@@ -14,20 +16,24 @@ class SugarProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (sugarGrams == null) {
+      return const SizedBox.shrink();
+    }
+
+    final grams = sugarGrams!;
     final percent = SugarCalculator.toPercentDailyLimit(
-      sugarGrams,
+      grams,
       dailyLimitGrams: dailyLimitGrams,
-    );
+    )!;
     final color = SugarCalculator.getSeverityColor(percent);
     final label = SugarCalculator.getSeverityLabel(percent);
     final progressClamped = (percent / 100.0).clamp(0.0, 1.0);
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+      decoration: GlucioTheme.cardDecoration(
+        surface: GlucioTheme.cardCream,
+        radius: 16,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -35,67 +41,99 @@ class SugarProgressBar extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'WHO Daily Free Sugar Limit',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+              const Text(
+                'WHO Daily Limit (25g)',
+                style: TextStyle(
+                  fontFamily: GlucioTheme.fontBody,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: GlucioTheme.inkBlack,
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: color,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: GlucioTheme.inkBlack, width: 2),
                 ),
                 child: Text(
                   label,
                   style: const TextStyle(
+                    fontFamily: GlucioTheme.fontBody,
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: progressClamped,
-              minHeight: 12,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
+          // Thick black-outlined progress track with hard shadow
+          Container(
+            height: 18,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: GlucioTheme.inkBlack, width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: GlucioTheme.inkBlack,
+                  offset: Offset(2, 2),
+                  blurRadius: 0,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: Stack(
+                children: [
+                  FractionallySizedBox(
+                    widthFactor: progressClamped,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: color,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 '${percent.toStringAsFixed(0)}% of limit',
                 style: TextStyle(
+                  fontFamily: GlucioTheme.fontBody,
                   fontWeight: FontWeight.bold,
                   color: color,
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
               ),
               Text(
-                '${sugarGrams.toStringAsFixed(1)}g / ${dailyLimitGrams.toStringAsFixed(0)}g max',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade700,
-                    ),
+                '${grams.toStringAsFixed(1)}g / ${dailyLimitGrams.toStringAsFixed(0)}g max',
+                style: const TextStyle(
+                  fontFamily: GlucioTheme.fontBody,
+                  color: Colors.black87,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
           if (percent > 100) ...[
             const SizedBox(height: 8),
             Text(
-              '⚠️ This single item exceeds your entire recommended daily sugar limit by ${(percent - 100).toStringAsFixed(0)}%!',
+              '⚠️ Exceeds entire daily recommended sugar limit by ${(percent - 100).toStringAsFixed(0)}%!',
               style: TextStyle(
+                fontFamily: GlucioTheme.fontBody,
                 color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],

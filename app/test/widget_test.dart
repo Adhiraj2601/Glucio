@@ -1,9 +1,10 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glucio/main.dart';
 
 void main() {
-  testWidgets('Glucio Slice 1 smoke test - HomeScreen renders properly', (WidgetTester tester) async {
+  testWidgets('GlucioApp smoke test renders HomeScreen with title and scanner button',
+      (WidgetTester tester) async {
     await tester.pumpWidget(
       const ProviderScope(
         child: GlucioApp(),
@@ -11,10 +12,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Verify app title and main actions
     expect(find.text('Glucio'), findsOneWidget);
     expect(find.text('Scan Food Barcode'), findsOneWidget);
-    expect(find.text('Enter Barcode Manually (Debug / Testing)'), findsOneWidget);
-    expect(find.text('Parle-G Gluco Biscuits'), findsOneWidget);
+    expect(find.text('Launch Camera Scanner'), findsOneWidget);
+    expect(find.text('Quick Test Products'), findsOneWidget);
   });
 }

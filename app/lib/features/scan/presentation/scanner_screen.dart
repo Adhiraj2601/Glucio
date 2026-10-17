@@ -58,13 +58,19 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       if (product != null) {
         await Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ProductResultScreen(product: product),
+            builder: (_) => ProductResultScreen(
+              product: product,
+              trace: repo.lastTrace,
+            ),
           ),
         );
       } else {
         await Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ProductNotFoundScreen(barcode: barcode),
+            builder: (_) => ProductNotFoundScreen(
+              barcode: barcode,
+              trace: repo.lastTrace,
+            ),
           ),
         );
       }
@@ -155,6 +161,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                   _buildQuickChip(ctx, 'Kissan Ketchup (Hidden)', '8901030383454'),
                   _buildQuickChip(ctx, 'Thums Up', '8901764012211'),
                   _buildQuickChip(ctx, 'Haldiram Alu Bhujia', '8901725181222'),
+                  _buildQuickChip(ctx, 'Maggi Sauce (EAN-8)', '89080443'),
                   _buildQuickChip(ctx, 'Unknown (404)', '8909999999999'),
                 ],
               ),

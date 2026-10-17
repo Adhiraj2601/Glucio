@@ -1,31 +1,31 @@
-barcode,name,brand,category,pack_size_g,serving_size_g,sugar_per_100g,added_sugar_per_100g,hidden_sugar_flag,source,verified
-8901063012130,Parle-G Original Gluco Biscuits,Parle,biscuits,250,25,25.5,21.0,false,seed-unverified,false
-8901058852239,Maggi 2-Minute Masala Noodles,Nestle,instant noodles,70,70,3.2,,false,seed-unverified,false
-8901725181222,Haldiram's Alu Bhujia,Haldiram's,namkeen,150,30,2.1,,false,seed-unverified,false
-7622201750242,Oreo Original Vanilla Creme Biscuits,Cadbury,biscuits,120,28.5,38.0,36.5,false,seed-unverified,false
-8901491101833,Lay's India's Magic Masala Chips,Lay's,chips,50,30,3.5,,false,seed-unverified,false
-8901030383454,Kissan Fresh Tomato Ketchup,Kissan,sauces,500,15,25.4,24.0,true,seed-unverified,false
-8901063142219,Britannia Good Day Butter Biscuits,Britannia,biscuits,100,20,22.0,20.0,false,seed-unverified,false
-8901262010014,Amul Kool Elaichi Flavoured Milk,Amul,beverage,180,180,9.0,5.0,false,seed-unverified,false
-8901719102011,Frooti Mango Drink,Parle Agro,beverage,150,150,13.2,12.5,false,seed-unverified,false
-8901764012211,Thums Up Carbonated Drink,Coca-Cola,beverage,300,300,10.6,10.6,false,seed-unverified,false
-7622201720115,Cadbury Dairy Milk Chocolate,Cadbury,confectionery,50,20,57.0,49.0,false,seed-unverified,false
-8901063014110,Britannia Milk Bikis Biscuits,Britannia,biscuits,90,20,24.0,22.0,false,seed-unverified,false
-8901725131012,Sunfeast Dark Fantasy Choco Fills,ITC,biscuits,75,25,37.5,34.0,false,seed-unverified,false
-8901491102212,Kurkure Masala Munch,PepsiCo,namkeen,82,30,2.0,,false,seed-unverified,false
-8901058842117,KitKat 4 Finger Chocolate Bar,Nestle,confectionery,37.5,37.5,46.0,42.0,false,seed-unverified,false
-8901207012011,Tropicana 100% Orange Juice,Tropicana,beverage,200,200,9.1,0.0,false,seed-unverified,false
-8906007280014,Yakult Probiotic Drink,Yakult,beverage,65,65,15.4,14.0,false,seed-unverified,false
-8908006822019,Epigamia Greek Yogurt Strawberry,Epigamia,yogurt,100,100,11.2,8.0,true,seed-unverified,false
-8901207021020,Real Fruit Power Mixed Fruit,Dabur,beverage,1000,200,13.0,11.5,false,seed-unverified,false
-8901030001013,Lipton Ice Tea Lemon,Lipton,beverage,250,250,7.8,7.5,false,seed-unverified,false
-7622201710116,Cadbury Bournvita Chocolate Health Drink,Cadbury,health drink,500,20,32.0,28.0,false,seed-unverified,false
-8901030864014,Horlicks Classic Malt,Hindustan Unilever,health drink,500,27,25.0,21.0,false,seed-unverified,false
-8901262020013,Mother Dairy Kesar Flavoured Milk,Mother Dairy,beverage,180,180,10.0,6.0,false,seed-unverified,false
-8901063311011,Britannia 100% Whole Wheat Bread,Britannia,bread,400,50,5.8,4.0,true,seed-unverified,false
-8901491501015,Quaker Oats Kesar Flavor with Real Raisins,Quaker,cereals,40,40,16.0,12.0,false,seed-unverified,false
-8901058861019,Kellogg's Chocos Chocolate Cereal,Kellogg's,cereals,375,30,29.8,27.0,false,seed-unverified,false
-8901725111014,Haldiram's Gulab Jamun,Haldiram's,sweets,1000,50,48.0,45.0,false,seed-unverified,false
-8901725191016,Bikanervala Soan Papdi,Bikanervala,sweets,500,30,46.0,43.0,false,seed-unverified,false
-8901725141011,Bikaji Bhujia Sev,Bikaji,namkeen,200,30,1.5,,false,seed-unverified,false
-8901058831012,Knorr Chinese Schezwan Soupy Noodles,Knorr,instant noodles,75,75,5.5,4.0,true,seed-unverified,false
+barcode,name,brand,category,pack_size_g,serving_size_g,sugar_per_100g,added_sugar_per_100g,sugar_basis,portions,hidden_sugar_flag,source,verified
+8901063012134,Parle-G Original Gluco Biscuits,Parle,biscuits,250,25,25.5,21.0,per_100g,1 biscuit=10|1 serving=25|Whole pack=250,false,seed-unverified,false
+8901058852233,Maggi 2-Minute Masala Noodles,Nestle,instant noodles,70,70,3.2,,per_100g,1 bowl=70|Whole pack=70,false,seed-unverified,false
+8901725181222,Haldiram's Alu Bhujia,Haldiram's,namkeen,150,30,2.1,,per_100g,1 handful=25|1 serving=30|Whole pack=150,false,seed-unverified,false
+7622201750244,Oreo Original Vanilla Creme Biscuits,Cadbury,biscuits,120,28.5,38.0,36.5,per_100g,1 biscuit=11.4|1 serving=28.5|Whole pack=120,false,seed-unverified,false
+8901491101837,Lay's India's Magic Masala Chips,Lay's,chips,50,30,3.5,,per_100g,1 handful=25|1 serving=30|Whole pack=50,false,seed-unverified,false
+8901030383458,Kissan Fresh Tomato Ketchup,Kissan,sauces,500,15,25.4,24.0,per_100g,1 tsp=5|1 tbsp=15|1 serving=15|Whole pack=500,true,seed-unverified,false
+8901063142213,Britannia Good Day Butter Biscuits,Britannia,biscuits,100,20,22.0,20.0,per_100g,1 biscuit=10|1 serving=20|Whole pack=100,false,seed-unverified,false
+8901262010016,Amul Kool Elaichi Flavoured Milk,Amul,beverage,180,180,9.0,5.0,per_100ml,1 glass=180|Whole pack=180,false,seed-unverified,false
+8901719102011,Frooti Mango Drink,Parle Agro,beverage,150,150,13.2,12.5,per_100ml,1 glass=150|Whole pack=150,false,seed-unverified,false
+8901764012211,Thums Up Carbonated Drink,Coca-Cola,beverage,300,300,10.6,10.6,per_100ml,1 glass=200|Whole pack=300,false,seed-unverified,false
+7622201720117,Cadbury Dairy Milk Chocolate,Cadbury,confectionery,50,20,57.0,49.0,per_100g,1 bar=50|1 serving=20|Whole pack=50,false,seed-unverified,false
+8901063014114,Britannia Milk Bikis Biscuits,Britannia,biscuits,90,20,24.0,22.0,per_100g,1 biscuit=10|1 serving=20|Whole pack=90,false,seed-unverified,false
+8901725131012,Sunfeast Dark Fantasy Choco Fills,ITC,biscuits,75,25,37.5,34.0,per_100g,1 biscuit=12.5|1 serving=25|Whole pack=75,false,seed-unverified,false
+8901491102216,Kurkure Masala Munch,PepsiCo,namkeen,82,30,2.0,,per_100g,1 handful=25|1 serving=30|Whole pack=82,false,seed-unverified,false
+8901058842111,KitKat 4 Finger Chocolate Bar,Nestle,confectionery,37.5,37.5,46.0,42.0,per_100g,1 bar=37.5|Whole pack=37.5,false,seed-unverified,false
+8901207012013,Tropicana 100% Orange Juice,Tropicana,beverage,200,200,9.1,0.0,per_100ml,1 glass=200|Whole pack=200,false,seed-unverified,false
+8906007280013,Yakult Probiotic Drink,Yakult,beverage,65,65,15.4,14.0,per_100ml,1 bottle=65|Whole pack=65,false,seed-unverified,false
+8908006822010,Epigamia Greek Yogurt Strawberry,Epigamia,yogurt,100,100,11.2,8.0,per_100g,1 cup=100|Whole pack=100,true,seed-unverified,false
+8901207021022,Real Fruit Power Mixed Fruit,Dabur,beverage,1000,200,13.0,11.5,per_100ml,1 glass=200|Whole pack=1000,false,seed-unverified,false
+8901030001017,Lipton Ice Tea Lemon,Lipton,beverage,250,250,7.8,7.5,per_100ml,1 glass=200|Whole pack=250,false,seed-unverified,false
+7622201710118,Cadbury Bournvita Chocolate Health Drink,Cadbury,health drink,500,20,32.0,28.0,per_100g,1 tbsp=20|1 glass=200|Whole pack=500,false,seed-unverified,false
+8901030864018,Horlicks Classic Malt,Hindustan Unilever,health drink,500,27,25.0,21.0,per_100g,1 tbsp=20|1 glass=200|Whole pack=500,false,seed-unverified,false
+8901262020015,Mother Dairy Kesar Flavoured Milk,Mother Dairy,beverage,180,180,10.0,6.0,per_100ml,1 glass=180|Whole pack=180,false,seed-unverified,false
+8901063311015,Britannia 100% Whole Wheat Bread,Britannia,bread,400,50,5.8,4.0,per_100g,1 slice=40|1 serving=50|Whole pack=400,true,seed-unverified,false
+8901491501019,Quaker Oats Kesar Flavor with Real Raisins,Quaker,cereals,40,40,16.0,12.0,per_100g,1 bowl=40|Whole pack=40,false,seed-unverified,false
+8901058861013,Kellogg's Chocos Chocolate Cereal,Kellogg's,cereals,375,30,29.8,27.0,per_100g,1 bowl=30|Whole pack=375,false,seed-unverified,false
+8901725111014,Haldiram's Gulab Jamun,Haldiram's,sweets,1000,50,48.0,45.0,per_100g,1 piece=50|Whole pack=1000,false,seed-unverified,false
+8901725191016,Bikanervala Soan Papdi,Bikanervala,sweets,500,30,46.0,43.0,per_100g,1 piece=30|Whole pack=500,false,seed-unverified,false
+8901725141011,Bikaji Bhujia Sev,Bikaji,namkeen,200,30,1.5,,per_100g,1 handful=25|1 serving=30|Whole pack=200,false,seed-unverified,false
+8901058831016,Knorr Chinese Schezwan Soupy Noodles,Knorr,instant noodles,75,75,5.5,4.0,per_100g,1 bowl=75|Whole pack=75,true,seed-unverified,false

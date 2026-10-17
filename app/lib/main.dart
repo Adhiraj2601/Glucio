@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/theme/glucio_theme.dart';
 import 'data/repositories/product_repository.dart';
 import 'features/product/presentation/product_not_found_screen.dart';
 import 'features/product/presentation/product_result_screen.dart';
@@ -31,23 +32,14 @@ class GlucioApp extends StatelessWidget {
     return MaterialApp(
       title: 'Glucio',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF00796B), // Teal / Health primary
-          brightness: Brightness.light,
-        ),
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-        ),
-      ),
+      theme: GlucioTheme.themeData,
       home: const HomeScreen(),
     );
   }
 }
 
 /// Home screen with quick camera scanning and seed test catalog.
+/// Styled with Glucio's Neo-brutalist theme.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -73,7 +65,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: GlucioTheme.inkBlack),
+      ),
     );
 
     try {
@@ -84,13 +78,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (product != null) {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ProductResultScreen(product: product),
+            builder: (_) => ProductResultScreen(
+              product: product,
+              trace: repo.lastTrace,
+            ),
           ),
         );
       } else {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ProductNotFoundScreen(barcode: barcode),
+            builder: (_) => ProductNotFoundScreen(
+              barcode: barcode,
+              trace: repo.lastTrace,
+            ),
           ),
         );
       }
@@ -110,8 +110,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: GlucioTheme.bgCream,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(color: GlucioTheme.inkBlack, width: 2),
       ),
       builder: (ctx) {
         return Padding(
@@ -130,10 +132,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   const Text(
                     'Manual Barcode Input',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontFamily: GlucioTheme.fontDisplay,
+                      fontSize: 20,
+                      color: GlucioTheme.inkBlack,
+                    ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.close, color: GlucioTheme.inkBlack),
                     onPressed: () => Navigator.of(ctx).pop(),
                   ),
                 ],
@@ -143,23 +149,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 controller: textController,
                 keyboardType: TextInputType.number,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Enter EAN-13 Barcode',
+                style: const TextStyle(
+                  fontFamily: GlucioTheme.fontBody,
+                  fontSize: 14,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Enter EAN Barcode',
                   hintText: 'e.g. 8901063012130',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.qr_code),
+                  fillColor: GlucioTheme.cardCream,
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: GlucioTheme.inkBlack, width: 2),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: GlucioTheme.inkBlack, width: 2),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: GlucioTheme.primaryGreen, width: 2.5),
+                  ),
+                  prefixIcon: const Icon(Icons.qr_code, color: GlucioTheme.inkBlack),
                 ),
               ),
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () {
+              GestureDetector(
+                onTap: () {
                   final code = textController.text.trim();
                   Navigator.of(ctx).pop();
                   if (code.isNotEmpty) {
                     _lookupBarcode(code);
                   }
                 },
-                child: const Text('Lookup Product'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: GlucioTheme.accentLime,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: GlucioTheme.inkBlack, width: 2),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: GlucioTheme.inkBlack,
+                        offset: Offset(3, 3),
+                        blurRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'Lookup Product',
+                      style: TextStyle(
+                        fontFamily: GlucioTheme.fontBody,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: GlucioTheme.inkBlack,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -170,193 +218,238 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Scaffold(
+      backgroundColor: GlucioTheme.bgCream,
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.eco_rounded, color: Color(0xFF00796B)),
-            SizedBox(width: 8),
-            Text(
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: GlucioTheme.accentLime,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: GlucioTheme.inkBlack, width: 1.5),
+              ),
+              child: const Icon(Icons.grain, color: GlucioTheme.inkBlack, size: 20),
+            ),
+            const SizedBox(width: 8),
+            const Text(
               'Glucio',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontFamily: GlucioTheme.fontDisplay,
+                color: GlucioTheme.inkBlack,
+                fontSize: 24,
+              ),
             ),
           ],
         ),
+        elevation: 0,
+        backgroundColor: GlucioTheme.bgCream,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Hero Camera Scan Card
               Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF00796B), Color(0xFF004D40)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF00796B).withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                padding: const EdgeInsets.all(22),
+                decoration: GlucioTheme.cardDecoration(
+                  surface: GlucioTheme.accentLime,
+                  radius: 22,
                 ),
                 child: Column(
                   children: [
                     Container(
-                      width: 68,
-                      height: 68,
+                      width: 64,
+                      height: 64,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        shape: BoxShape.circle,
+                        color: GlucioTheme.cardCream,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: GlucioTheme.inkBlack, width: 2),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: GlucioTheme.inkBlack,
+                            offset: Offset(3, 3),
+                            blurRadius: 0,
+                          ),
+                        ],
                       ),
                       child: const Icon(
                         Icons.qr_code_scanner_rounded,
-                        size: 38,
-                        color: Colors.white,
+                        size: 34,
+                        color: GlucioTheme.inkBlack,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     const Text(
                       'Scan Food Barcode',
                       style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        fontFamily: GlucioTheme.fontDisplay,
+                        fontSize: 24,
+                        color: GlucioTheme.inkBlack,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
+                    const Text(
                       'Point camera at any packaged Indian snack or drink to see sugar in teaspoons & cubes.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 13,
-                        height: 1.3,
+                        fontFamily: GlucioTheme.fontBody,
+                        color: GlucioTheme.inkBlack,
+                        fontSize: 12,
+                        height: 1.35,
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF004D40),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 14,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onPressed: () {
+                    const SizedBox(height: 18),
+                    GestureDetector(
+                      onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => const ScannerScreen(),
                           ),
                         );
                       },
-                      icon: const Icon(Icons.camera_alt),
-                      label: const Text(
-                        'Launch Camera Scanner',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: GlucioTheme.primaryGreen,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: GlucioTheme.inkBlack, width: 2),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: GlucioTheme.inkBlack,
+                              offset: Offset(3, 3),
+                              blurRadius: 0,
+                            ),
+                          ],
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Launch Camera Scanner',
+                              style: TextStyle(
+                                fontFamily: GlucioTheme.fontBody,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Manual Input Button
-              OutlinedButton.icon(
-                onPressed: _showManualEntryDialog,
-                icon: const Icon(Icons.keyboard),
-                label: const Text('Enter Barcode Manually (Debug / Testing)'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+              GestureDetector(
+                onTap: _showManualEntryDialog,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: GlucioTheme.cardDecoration(
+                    surface: GlucioTheme.cardCream,
+                    radius: 14,
                   ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // WHO Daily Sugar Context Card
-              Card(
-                elevation: 0,
-                color: colorScheme.surfaceContainerHighest,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2E7D32).withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.favorite,
-                          color: Color(0xFF2E7D32),
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'WHO Free Sugar Target',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Max 25g/day (~6.25 teaspoons). Most Indian canned drinks or large biscuits exceed this in a single serve!',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade700,
-                                height: 1.3,
-                              ),
-                            ),
-                          ],
+                      Icon(Icons.keyboard, color: GlucioTheme.inkBlack, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Enter Barcode Manually (Debug)',
+                        style: TextStyle(
+                          fontFamily: GlucioTheme.fontBody,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: GlucioTheme.inkBlack,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+
+              // WHO Daily Sugar Context Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: GlucioTheme.cardDecoration(
+                  surface: GlucioTheme.cardCream,
+                  radius: 16,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: GlucioTheme.levelLow.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: GlucioTheme.inkBlack, width: 1.5),
+                      ),
+                      child: const Icon(
+                        Icons.health_and_safety_outlined,
+                        color: GlucioTheme.inkBlack,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'WHO Free Sugar Target',
+                            style: TextStyle(
+                              fontFamily: GlucioTheme.fontBody,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: GlucioTheme.inkBlack,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Max 25g/day (~6¼ tsp). Most Indian packaged drinks or snacks exceed this in 1 serve!',
+                            style: TextStyle(
+                              fontFamily: GlucioTheme.fontBody,
+                              fontSize: 11,
+                              color: Colors.black87,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
 
               // Quick Test Seed Products Section
-              Row(
+              const Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     'Quick Test Products',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    style: TextStyle(
+                      fontFamily: GlucioTheme.fontDisplay,
+                      fontSize: 18,
+                      color: GlucioTheme.inkBlack,
                     ),
                   ),
                   Text(
-                    'Slice 1 Seed Catalog',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
+                    'Slice 1.5 Test Catalog',
+                    style: TextStyle(
+                      fontFamily: GlucioTheme.fontBody,
+                      fontSize: 11,
+                      color: Colors.black54,
                     ),
                   ),
                 ],
@@ -365,45 +458,54 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
               _buildSeedProductTile(
                 title: 'Parle-G Gluco Biscuits',
-                subtitle: '8901063012130 • 25.5g sugar / 100g',
+                subtitle: '8901063012134 • 25.5g sugar (Seed Catalog)',
                 icon: Icons.cookie_outlined,
-                color: Colors.amber.shade800,
-                onTap: () => _lookupBarcode('8901063012130'),
+                fill: const Color(0xFFFFECC8),
+                onTap: () => _lookupBarcode('8901063012134'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
               _buildSeedProductTile(
                 title: 'Kissan Fresh Tomato Ketchup',
-                subtitle: '8901030383454 • 25.4g sugar (Hidden Sugar Alert!)',
+                subtitle: '8901030383458 • 25.4g sugar (Hidden Sugar Alert!)',
                 icon: Icons.warning_amber_rounded,
-                color: Colors.red.shade700,
-                onTap: () => _lookupBarcode('8901030383454'),
+                fill: const Color(0xFFFFD6D6),
+                onTap: () => _lookupBarcode('8901030383458'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
               _buildSeedProductTile(
                 title: 'Thums Up (300ml)',
                 subtitle: '8901764012211 • 31.8g sugar (~8 tsp - Exceeds 100%)',
                 icon: Icons.local_drink_outlined,
-                color: Colors.red.shade900,
+                fill: const Color(0xFFFFB800).withValues(alpha: 0.35),
                 onTap: () => _lookupBarcode('8901764012211'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
               _buildSeedProductTile(
                 title: 'Haldiram\'s Alu Bhujia',
-                subtitle: '8901725181222 • 2.1g sugar / 100g (Low Sugar)',
+                subtitle: '8901725181222 • 2.1g sugar (Low Sugar Namkeen)',
                 icon: Icons.check_circle_outline,
-                color: Colors.green.shade700,
+                fill: GlucioTheme.levelLow.withValues(alpha: 0.25),
                 onTap: () => _lookupBarcode('8901725181222'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
+
+              _buildSeedProductTile(
+                title: 'Maggi Tomato Sauce (EAN-8)',
+                subtitle: '89080443 • Tests missing-sugar / EAN-8 flow',
+                icon: Icons.help_outline,
+                fill: const Color(0xFFE0E0E0),
+                onTap: () => _lookupBarcode('89080443'),
+              ),
+              const SizedBox(height: 10),
 
               _buildSeedProductTile(
                 title: 'Test Barcode Not Found (404)',
-                subtitle: '8909999999999 • Tests product not found state',
+                subtitle: '8909999999999 • Tests Add This Product flow',
                 icon: Icons.search_off_rounded,
-                color: Colors.grey.shade700,
+                fill: GlucioTheme.cardCream,
                 onTap: () => _lookupBarcode('8909999999999'),
               ),
               const SizedBox(height: 24),
@@ -418,35 +520,58 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String title,
     required String subtitle,
     required IconData icon,
-    required Color color,
+    required Color fill,
     required VoidCallback onTap,
   }) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Colors.grey.shade300),
-      ),
-      child: ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: color, size: 22),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: GlucioTheme.cardDecoration(
+          surface: GlucioTheme.cardCream,
+          radius: 14,
         ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: fill,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: GlucioTheme.inkBlack, width: 1.5),
+              ),
+              child: Icon(icon, color: GlucioTheme.inkBlack, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontFamily: GlucioTheme.fontBody,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: GlucioTheme.inkBlack,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontFamily: GlucioTheme.fontBody,
+                      fontSize: 11,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 14, color: GlucioTheme.inkBlack),
+          ],
         ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-        ),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-        onTap: onTap,
       ),
     );
   }

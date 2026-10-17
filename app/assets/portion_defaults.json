@@ -1,0 +1,142 @@
+{
+  "sauces": [
+    {
+      "label": "1 tsp",
+      "amount": 5.0,
+      "basis": "g",
+      "kind": "spoon",
+      "source": "estimate"
+    },
+    {
+      "label": "1 tbsp",
+      "amount": 15.0,
+      "basis": "g",
+      "kind": "spoon",
+      "source": "estimate"
+    }
+  ],
+  "ketchup": [
+    {
+      "label": "1 tsp",
+      "amount": 5.0,
+      "basis": "g",
+      "kind": "spoon",
+      "source": "estimate"
+    },
+    {
+      "label": "1 tbsp",
+      "amount": 15.0,
+      "basis": "g",
+      "kind": "spoon",
+      "source": "estimate"
+    }
+  ],
+  "namkeen": [
+    {
+      "label": "1 handful",
+      "amount": 25.0,
+      "basis": "g",
+      "kind": "handful",
+      "source": "estimate"
+    }
+  ],
+  "chips": [
+    {
+      "label": "1 handful",
+      "amount": 25.0,
+      "basis": "g",
+      "kind": "handful",
+      "source": "estimate"
+    }
+  ],
+  "makhana": [
+    {
+      "label": "1 handful",
+      "amount": 25.0,
+      "basis": "g",
+      "kind": "handful",
+      "source": "estimate"
+    }
+  ],
+  "instant noodles": [
+    {
+      "label": "1 bowl",
+      "amount": 70.0,
+      "basis": "g",
+      "kind": "serving",
+      "source": "estimate"
+    }
+  ],
+  "beverage": [
+    {
+      "label": "1 glass",
+      "amount": 200.0,
+      "basis": "ml",
+      "kind": "glass",
+      "source": "estimate"
+    }
+  ],
+  "health drink": [
+    {
+      "label": "1 glass",
+      "amount": 200.0,
+      "basis": "ml",
+      "kind": "glass",
+      "source": "estimate"
+    }
+  ],
+  "biscuits": [
+    {
+      "label": "1 biscuit",
+      "amount": 12.5,
+      "basis": "g",
+      "kind": "unit",
+      "source": "estimate"
+    }
+  ],
+  "bread": [
+    {
+      "label": "1 slice",
+      "amount": 40.0,
+      "basis": "g",
+      "kind": "unit",
+      "source": "estimate"
+    }
+  ],
+  "cereals": [
+    {
+      "label": "1 bowl",
+      "amount": 30.0,
+      "basis": "g",
+      "kind": "serving",
+      "source": "estimate"
+    }
+  ],
+  "sweets": [
+    {
+      "label": "1 piece",
+      "amount": 30.0,
+      "basis": "g",
+      "kind": "unit",
+      "source": "estimate"
+    }
+  ],
+  "yogurt": [
+    {
+      "label": "1 cup",
+      "amount": 100.0,
+      "basis": "g",
+      "kind": "unit",
+      "source": "estimate"
+    }
+  ],
+  "confectionery": [
+    {
+      "label": "1 bar",
+      "amount": 37.5,
+      "basis": "g",
+      "kind": "unit",
+      "source": "estimate"
+    }
+  ]
+}
