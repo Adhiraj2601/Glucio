@@ -25,6 +25,27 @@ class GlucioTheme {
   static const Color levelHigh = Color(0xFFFF5A4F);
   static const Color levelMissing = Color(0xFF9E9E9E);
 
+  // ==========================================
+  // OFF QUALITY TOKENS (NUTRI-SCORE, NOVA, ECO-SCORE)
+  // Harmonised with cream/ink neo-brutalist system
+  // ==========================================
+  static const Color nutriScoreA = Color(0xFF038141);
+  static const Color nutriScoreB = Color(0xFF85BB2F);
+  static const Color nutriScoreC = Color(0xFFFECB02);
+  static const Color nutriScoreD = Color(0xFFEE8100);
+  static const Color nutriScoreE = Color(0xFFE63E11);
+
+  static const Color nova1 = Color(0xFF0E9F6E);
+  static const Color nova2 = Color(0xFF85BB2F);
+  static const Color nova3 = Color(0xFFFFB800);
+  static const Color nova4 = Color(0xFFFF5A4F);
+
+  static const Color ecoScoreA = Color(0xFF038141);
+  static const Color ecoScoreB = Color(0xFF85BB2F);
+  static const Color ecoScoreC = Color(0xFFFECB02);
+  static const Color ecoScoreD = Color(0xFFEE8100);
+  static const Color ecoScoreE = Color(0xFFE63E11);
+
   // Typography Family Names
   static const String fontDisplay = 'LilitaOne';
   static const String fontBody = 'SpaceMono';
