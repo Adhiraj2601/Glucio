@@ -177,3 +177,119 @@ Pick up your connected Android phone (`Samsung Galaxy M31`), where Glucio is run
   - `slice1_5_add_product_bottom.png`
   - `slice1_5_maggi_saved_result.png`
 
+---
+
+## Checkpoint B (After Slice 2: Daily Limit & Daily Sugar Tracker)
+**Status:** Verified on Physical Phone (Samsung Galaxy M31) 📱
+
+### What Was Built & Verified in Slice 2
+1. **Open Food Facts API v3 Upgrade & Pipeline Robustness**:
+   - Upgraded API client from v2 to Open Food Facts API v3 (`https://world.openfoodfacts.org/api/v3/product/{barcode}.json`).
+   - Clean field selection (`product_name,product_name_en,brands,categories,quantity,serving_size,serving_quantity,product_quantity,nutriments,nutrition_data_per`).
+   - Distinct 4-state result taxonomy (`LookupResultStatus`: `success`, `foundMissingSugar`, `notFound`, `networkError`).
+   - Basis derivation strictly honors `nutrition_data_per` or `quantity` units rather than blind fallback.
+   - Comprehensive error and offline diagnostics shown in the Neo-Brutalist `DebugTracePanel`.
+
+2. **Nullable Sugar Preservation Across the Entire Stack**:
+   - `sugarGrams` and `teaspoons` modeled strictly as nullable (`double?`) in `FoodLogEntry` and `LocalProductDatabase` SQLite v2 schema.
+   - Missing nutrition values never default to `0.0g` or increment the consumed sugar counter.
+   - Prominent amber alert badge (`⚠ N items logged with missing sugar data`) displayed on `DailyTrackerCard`.
+
+3. **Riverpod Reactive State Management**:
+   - `dailyLimitProvider`: Manages user's daily sugar threshold (persisted in SQLite `user_settings`, defaults to 25.0g WHO guideline).
+   - `todayFoodLogsProvider`: Manages reactive list of food log items eaten on the current calendar day (`food_logs` table).
+   - Derived providers:
+     - `todayTotalSugarProvider`: Sum of known sugar consumed today.
+     - `todayUnknownSugarCountProvider`: Count of entries with unknown/missing sugar.
+     - `todayTotalTeaspoonsProvider`: Teaspoons equivalent ($1\text{ tsp} = 4.0\text{ g}$).
+
+4. **Neo-Brutalist Daily Tracker UI (`DailyTrackerCard`)**:
+   - Positioned prominently at the top of `HomeScreen`.
+   - Real-time gauge: Consumed grams vs daily target, with dynamic remaining / excess status pill.
+   - Dynamic 3-stage progress bar:
+     - **Green (<= 50%)**: Safe threshold.
+     - **Amber (51% - 100%)**: Approaching daily limit.
+     - **Coral / Red (> 100%)**: Exceeded target limit.
+   - Interactive Target Limit Sheet: Preset chips (20g Strict, 25g WHO Recommended, 35g Active, 50g Relaxed) plus custom input field.
+   - Collapsible "Today's Food Log" list with portion details, logging timestamp, and instant deletion trash icon.
+
+5. **"Log This Food" Actions on Product Screens**:
+   - Primary `[ 🔖 LOG THIS FOOD (X.Xg sugar) ]` action on `ProductResultScreen`. Dynamically computes exact portion sugar including multiplier ($x1, x2, x3$).
+   - Dedicated `[ 🔖 Log Food Anyway (Unknown Sugar) ]` action on missing sugar card.
+   - Interactive SnackBar toast with immediate feedback.
+
+---
+
+### Step-by-Step Device Testing Checklist for Checkpoint B
+
+Pick up your connected Android phone (`Samsung Galaxy M31`), where Glucio is running:
+
+#### Test 1: Daily Target Limit Customization
+1. On `HomeScreen`, observe the `DailyTrackerCard` header displaying `Limit: 25g ✎`.
+2. Tap the `Limit: 25g ✎` button.
+3. The bottom sheet opens with preset chips (`20g`, `25g WHO`, `35g`, `50g`) and custom input.
+4. Select `35g Active` and tap `Save Target Limit`.
+5. **Verified Result**: The tracker card immediately updates to `0.0g / 35g target`, displaying `35.0g left` and green progress bar. Persisted in SQLite.
+
+#### Test 2: Logging Food with Multiplier (Parle-G $x2$)
+1. In the Quick Test catalog on `HomeScreen`, tap **Parle-G Original Gluco Biscuits**.
+2. Select portion `1 biscuit (5g)` and tap the `x2` multiplier.
+3. Note button updates to: `[ 🔖 LOG THIS FOOD (5.1g sugar) ]`.
+4. Tap the log button. A green confirmation SnackBar appears.
+5. Tap Back to `HomeScreen`.
+6. **Verified Result**:
+   - Tracker updates to `5.1g / 35g target` (`29.9g left`, `about 1¼ teaspoons consumed`).
+   - "Today's Food Log (1)" section expands to show `Parle-G Original Gluco Biscuits` • `1 biscuit (x2) • 5.1g sugar`.
+
+#### Test 3: Approaching Daily Limit (Thums Up 300ml)
+1. Tap **Thums Up (300ml)** (`8901764012211`) in Quick Test catalog.
+2. Select `Whole pack (300ml)` portion ($21.2\text{ g}$ sugar).
+3. Tap `[ 🔖 LOG THIS FOOD (21.2g sugar) ]`.
+4. Return to `HomeScreen`.
+5. **Verified Result**:
+   - Total updates to `26.3g / 35g target` (`8.7g left`).
+   - Progress bar dynamically shifts from green to **Amber (75%)**.
+   - Food log contains 2 items.
+
+#### Test 4: Live Item Deletion
+1. In `DailyTrackerCard` on `HomeScreen`, locate `Thums Up` in "Today's Food Log".
+2. Tap the trash icon next to `Thums Up`.
+3. **Verified Result**: Item is instantly removed from database; total drops back to `5.1g / 35g`, and progress bar turns back to **Green**.
+
+#### Test 5: Logging Product with Missing Sugar (Aquafina `0004614504046`)
+1. Tap **Enter Barcode Manually (Debug)**, type `0004614504046`, and tap `Lookup Product`.
+2. OFF v3 lookup returns product found with no sugar data (`LookupResultStatus.foundMissingSugar`).
+3. Screen displays neutral gray "Sugar data missing" card without cubes or false 0% badge.
+4. Tap `[ 🔖 Log Food Anyway (Unknown Sugar) ]`.
+5. Return to `HomeScreen`.
+6. **Verified Result**:
+   - Consumed sugar remains strictly unchanged at `5.1g` (never falsely assumes 0g!).
+   - Prominent warning badge appears: `⚠ 1 item logged with missing sugar data`.
+   - Food log lists `AQUAFINA` with label `Sugar unknown`.
+
+---
+
+### Automated Verification Summary
+- `flutter analyze`: **0 issues found** (clean in 33.0s)
+- `flutter test`: **51/51 tests passed (100%)**
+  - `daily_tracker_providers_test.dart`: Limit persistence, log additions, deletions, null-sugar summing.
+  - `food_log_entry_test.dart`: Strict nullable serialization, portion math.
+  - `product_repository_test.dart`: OFF v3 API parsing, status mapping, basis derivation.
+  - `checksum_test.dart`: EAN check digits.
+  - `portion_builder_test.dart`: Household portions.
+  - `sugar_calculator_test.dart`: Teaspoon conversions.
+- Device: Samsung Galaxy M31 (`RZ8N702ND4E`) running debug APK (`com.glucio.app`).
+- Live physical device screenshots captured in `docs/screenshots/`:
+  - `slice2_01_home_tracker_clean.png`: Initial empty tracker ($0.0\text{ g} / 25\text{ g}$).
+  - `slice2_02_edit_limit_modal.png`: Daily Target modal with presets.
+  - `slice2_03_limit_updated_35g.png`: Updated limit to $35\text{ g}$.
+  - `slice2_05_parleg_scanned.png`: Parle-G with Log Food button.
+  - `slice2_06_parleg_x2.png`: Quantity $x2$ calculation.
+  - `slice2_08_home_tracker_logged_food.png`: Tracker updated after logging Parle-G.
+  - `slice2_09_thumsup_result.png`: Thums Up scan screen.
+  - `slice2_10_home_tracker_two_items.png`: Amber warning bar at $26.3\text{ g} / 35\text{ g}$.
+  - `slice2_12_home_after_exact_delete.png`: Deletion decrements total back to $5.1\text{ g}$.
+  - `slice2_13_aquafina_missing_sugar.png`: Missing sugar card with Log Anyway button.
+  - `slice2_14_home_tracker_missing_sugar_badge.png`: Home tracker displaying missing sugar warning badge.
+
+

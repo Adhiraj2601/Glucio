@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
+import '../models/food_log_entry.dart';
 import '../models/portion.dart';
 import '../models/product.dart';
 
-/// Local SQLite database managing user-added and custom-edited products.
+/// Local SQLite database managing user-added products, food logs, and user settings.
 class LocalProductDatabase {
   static final LocalProductDatabase instance = LocalProductDatabase._init();
   static Database? _database;
@@ -23,8 +24,9 @@ class LocalProductDatabase {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -47,7 +49,42 @@ class LocalProductDatabase {
         created_at TEXT
       )
     ''');
+
+    await _createV2Tables(db);
   }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await _createV2Tables(db);
+    }
+  }
+
+  Future<void> _createV2Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS food_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        barcode TEXT NOT NULL,
+        name TEXT NOT NULL,
+        brand TEXT,
+        portion_label TEXT NOT NULL,
+        portion_amount REAL NOT NULL,
+        portion_basis TEXT NOT NULL,
+        sugar_grams REAL,
+        logged_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS user_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
+  }
+
+  // ==========================================
+  // USER PRODUCTS
+  // ==========================================
 
   /// Inserts or updates a user-added product.
   Future<void> saveProduct(Product product) async {
@@ -72,7 +109,6 @@ class LocalProductDatabase {
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    // TODO(Slice-5): Sync user-contributed product to Supabase cloud database
   }
 
   /// Looks up a product by barcode in the local user database.
@@ -146,5 +182,88 @@ class LocalProductDatabase {
         verified: (row['verified'] as int?) == 1,
       );
     }).toList();
+  }
+
+  // ==========================================
+  // FOOD LOGS (SLICE 2)
+  // ==========================================
+
+  /// Inserts a new food log entry and returns its generated integer ID.
+  Future<int> insertFoodLog(FoodLogEntry entry) async {
+    final db = await database;
+    return await db.insert('food_logs', entry.toMap());
+  }
+
+  /// Retrieves all food log entries for a given calendar date (defaults to today in local time).
+  Future<List<FoodLogEntry>> getFoodLogsForDate([DateTime? date]) async {
+    final db = await database;
+    final target = date ?? DateTime.now();
+    final startOfDay = DateTime(target.year, target.month, target.day).toIso8601String();
+    final endOfDay = DateTime(target.year, target.month, target.day, 23, 59, 59, 999).toIso8601String();
+
+    final result = await db.query(
+      'food_logs',
+      where: 'logged_at >= ? AND logged_at <= ?',
+      whereArgs: [startOfDay, endOfDay],
+      orderBy: 'logged_at DESC',
+    );
+
+    return result.map((map) => FoodLogEntry.fromMap(map)).toList();
+  }
+
+  /// Deletes a single food log entry by its ID.
+  Future<int> deleteFoodLog(int id) async {
+    final db = await database;
+    return await db.delete(
+      'food_logs',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Clears all food logs for a given calendar date.
+  Future<int> clearFoodLogsForDate([DateTime? date]) async {
+    final db = await database;
+    final target = date ?? DateTime.now();
+    final startOfDay = DateTime(target.year, target.month, target.day).toIso8601String();
+    final endOfDay = DateTime(target.year, target.month, target.day, 23, 59, 59, 999).toIso8601String();
+
+    return await db.delete(
+      'food_logs',
+      where: 'logged_at >= ? AND logged_at <= ?',
+      whereArgs: [startOfDay, endOfDay],
+    );
+  }
+
+  // ==========================================
+  // USER SETTINGS (DAILY LIMIT)
+  // ==========================================
+
+  /// Gets the user's daily sugar limit in grams (defaults to 25.0g WHO limit).
+  Future<double> getDailyLimit() async {
+    final db = await database;
+    final maps = await db.query(
+      'user_settings',
+      where: 'key = ?',
+      whereArgs: ['daily_limit_g'],
+    );
+    if (maps.isNotEmpty) {
+      final val = double.tryParse(maps.first['value'] as String);
+      if (val != null && val > 0) return val;
+    }
+    return 25.0;
+  }
+
+  /// Sets the user's daily sugar limit in grams.
+  Future<void> setDailyLimit(double limitGrams) async {
+    final db = await database;
+    await db.insert(
+      'user_settings',
+      {
+        'key': 'daily_limit_g',
+        'value': limitGrams.toString(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 }

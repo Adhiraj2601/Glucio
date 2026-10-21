@@ -52,7 +52,8 @@ class DebugTracePanel extends StatelessWidget {
               children: [
                 _buildRow('Raw Barcode', t.rawBarcode),
                 _buildRow('Format', t.barcodeFormat),
-                _buildRow('Status', t.isFound ? 'HIT' : 'MISS'),
+                _buildRow('Status', t.status.name.toUpperCase()),
+                _buildRow('Hit State', t.isFound ? 'FOUND' : 'NOT FOUND'),
                 if (t.error != null) _buildRow('Error', t.error!),
                 const SizedBox(height: 8),
                 const Text(

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/glucio_theme.dart';
 import '../../../../core/utils/sugar_calculator.dart';
+import '../../../data/models/food_log_entry.dart';
 import '../../../data/models/portion.dart';
 import '../../../data/models/product.dart';
 import '../../../data/repositories/product_repository.dart';
+import '../../log/presentation/providers/daily_tracker_providers.dart';
 import 'add_product_screen.dart';
 import 'widgets/debug_trace_panel.dart';
 import 'widgets/sugar_cube_widget.dart';
@@ -11,7 +14,7 @@ import 'widgets/sugar_progress_bar.dart';
 
 /// Screen displaying the complete sugar breakdown and cube visualizer for a scanned product.
 /// Built with Neo-brutalist styling: warm cream surfaces, 2px ink borders, and 4px hard shadows.
-class ProductResultScreen extends StatefulWidget {
+class ProductResultScreen extends ConsumerStatefulWidget {
   final Product product;
   final LookupTrace? trace;
 
@@ -22,10 +25,10 @@ class ProductResultScreen extends StatefulWidget {
   });
 
   @override
-  State<ProductResultScreen> createState() => _ProductResultScreenState();
+  ConsumerState<ProductResultScreen> createState() => _ProductResultScreenState();
 }
 
-class _ProductResultScreenState extends State<ProductResultScreen> {
+class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
   int _selectedPortionIndex = 0;
   int _multiplier = 1;
 
@@ -334,6 +337,49 @@ class _ProductResultScreenState extends State<ProductResultScreen> {
                 _buildHiddenSugarAlert(p),
                 const SizedBox(height: 16),
               ],
+
+              // Log This Food Button
+              GestureDetector(
+                onTap: () => _logCurrentPortion(p, portion!, currentSugarG),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: GlucioTheme.accentLime,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: GlucioTheme.inkBlack, width: 2),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: GlucioTheme.inkBlack,
+                        offset: Offset(3, 3),
+                        blurRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.bookmark_add_rounded,
+                        color: GlucioTheme.inkBlack,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        currentSugarG != null
+                            ? 'LOG THIS FOOD (${currentSugarG.toStringAsFixed(1)}g sugar)'
+                            : 'LOG THIS FOOD',
+                        style: const TextStyle(
+                          fontFamily: GlucioTheme.fontBody,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: GlucioTheme.inkBlack,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
             ],
 
             // Collapsed "Label details" accordion for raw numbers
@@ -501,7 +547,7 @@ class _ProductResultScreenState extends State<ProductResultScreen> {
               );
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: GlucioTheme.accentLime,
                 borderRadius: BorderRadius.circular(14),
@@ -516,16 +562,57 @@ class _ProductResultScreenState extends State<ProductResultScreen> {
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.edit, color: GlucioTheme.inkBlack, size: 18),
                   SizedBox(width: 8),
-                  Text(
-                    'Add or correct this product',
-                    style: TextStyle(
-                      fontFamily: GlucioTheme.fontBody,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: GlucioTheme.inkBlack,
+                  Flexible(
+                    child: Text(
+                      'Add or correct this product',
+                      style: TextStyle(
+                        fontFamily: GlucioTheme.fontBody,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: GlucioTheme.inkBlack,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () => _logCurrentPortion(p, _getCurrentPortion(p), null),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: GlucioTheme.cardCream,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: GlucioTheme.inkBlack, width: 2),
+                boxShadow: const [
+                  BoxShadow(
+                    color: GlucioTheme.inkBlack,
+                    offset: Offset(3, 3),
+                    blurRadius: 0,
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.bookmark_add_outlined, color: GlucioTheme.inkBlack, size: 18),
+                  SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Log Food Anyway (Unknown Sugar)',
+                      style: TextStyle(
+                        fontFamily: GlucioTheme.fontBody,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: GlucioTheme.inkBlack,
+                      ),
                     ),
                   ),
                 ],
@@ -533,6 +620,64 @@ class _ProductResultScreenState extends State<ProductResultScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _logCurrentPortion(
+    Product p,
+    Portion portion,
+    double? currentSugarG,
+  ) async {
+    final entry = FoodLogEntry(
+      barcode: p.barcode,
+      name: p.name,
+      brand: p.brand,
+      portionLabel: _multiplier > 1
+          ? '${portion.label} (x$_multiplier)'
+          : portion.label,
+      portionAmount: portion.amount * _multiplier,
+      portionBasis: p.sugarBasis.contains('ml') ? 'ml' : 'g',
+      sugarGrams: currentSugarG,
+      loggedAt: DateTime.now(),
+    );
+
+    await ref.read(todayFoodLogsProvider.notifier).addLog(entry);
+
+    if (!mounted) return;
+
+    final limit = ref.read(dailyLimitProvider).value ?? 25.0;
+    final totalConsumed = ref.read(todayTotalSugarProvider);
+    final remaining = limit - totalConsumed;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: GlucioTheme.inkBlack,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: GlucioTheme.accentLime, width: 1.5),
+        ),
+        behavior: SnackBarBehavior.floating,
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: GlucioTheme.accentLime, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                currentSugarG != null
+                    ? 'Logged! ${totalConsumed.toStringAsFixed(1)}g / ${limit.toStringAsFixed(0)}g consumed today (${remaining >= 0 ? "${remaining.toStringAsFixed(1)}g left" : "${(-remaining).toStringAsFixed(1)}g over"})'
+                    : 'Logged to tracker (Sugar unknown)',
+                style: const TextStyle(
+                  fontFamily: GlucioTheme.fontBody,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 3),
       ),
     );
   }

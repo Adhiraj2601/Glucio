@@ -9,6 +9,14 @@ import '../../core/utils/portion_builder.dart';
 import '../datasources/local_product_database.dart';
 import '../models/product.dart';
 
+/// 4 distinct statuses for barcode lookup results as required by pipeline design.
+enum LookupResultStatus {
+  success,
+  foundMissingSugar,
+  notFound,
+  networkError,
+}
+
 /// Captures diagnostic details for debug builds.
 class LookupTrace {
   final String rawBarcode;
@@ -16,6 +24,7 @@ class LookupTrace {
   final List<String> steps;
   final String? error;
   final Product? result;
+  final LookupResultStatus status;
 
   const LookupTrace({
     required this.rawBarcode,
@@ -23,6 +32,7 @@ class LookupTrace {
     required this.steps,
     this.error,
     this.result,
+    this.status = LookupResultStatus.notFound,
   });
 
   bool get isFound => result != null;
@@ -91,11 +101,15 @@ class ProductRepository {
       final userProduct = await _localDb.getProduct(cleanBarcode);
       if (userProduct != null) {
         steps.add('Local User DB: HIT (${userProduct.name})');
+        final status = userProduct.sugarPer100 != null
+            ? LookupResultStatus.success
+            : LookupResultStatus.foundMissingSugar;
         final trace = LookupTrace(
           rawBarcode: cleanBarcode,
           barcodeFormat: format,
           steps: steps,
           result: userProduct,
+          status: status,
         );
         lastTrace = trace;
         return userProduct;
@@ -110,11 +124,15 @@ class ProductRepository {
     if (_seedCache.containsKey(cleanBarcode)) {
       final seedProduct = _seedCache[cleanBarcode]!;
       steps.add('Seed Catalog: HIT (${seedProduct.name})');
+      final status = seedProduct.sugarPer100 != null
+          ? LookupResultStatus.success
+          : LookupResultStatus.foundMissingSugar;
       final trace = LookupTrace(
         rawBarcode: cleanBarcode,
         barcodeFormat: format,
         steps: steps,
         result: seedProduct,
+        status: status,
       );
       lastTrace = trace;
       return seedProduct;
@@ -122,7 +140,7 @@ class ProductRepository {
       steps.add('Seed Catalog: MISS');
     }
 
-    // 3. Query Open Food Facts v2 API
+    // 3. Query Open Food Facts v3 API
     // Candidates to query: raw code, and zero-padded variations
     final List<String> queryCandidates = [cleanBarcode];
     if (cleanBarcode.length == 12) {
@@ -136,7 +154,7 @@ class ProductRepository {
     for (final candidate in queryCandidates) {
       try {
         final url = Uri.parse(
-          'https://world.openfoodfacts.org/api/v2/product/$candidate.json',
+          'https://world.openfoodfacts.org/api/v3/product/$candidate.json?fields=product_name,product_name_en,brands,categories,quantity,serving_size,serving_quantity,product_quantity,nutriments,nutrition_data_per',
         );
         debugPrint('[OFF Lookup] Requesting URL: $url');
         final response = await _client.get(
@@ -150,42 +168,57 @@ class ProductRepository {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body) as Map<String, dynamic>;
-          final hasProduct = data['product'] != null && data['status'] == 1;
-          steps.add('OFF API ($candidate): Status 200, product_present=$hasProduct');
+          final productMap = data['product'] as Map<String, dynamic>?;
+          steps.add('OFF API v3 ($candidate): Status 200, product_present=${productMap != null}');
 
-          if (hasProduct) {
+          if (productMap != null) {
             final p = _parseOpenFoodFacts(
               cleanBarcode,
-              data['product'] as Map<String, dynamic>,
+              productMap,
             );
             _seedCache[cleanBarcode] = p; // cache for session
+            final status = p.sugarPer100 != null
+                ? LookupResultStatus.success
+                : LookupResultStatus.foundMissingSugar;
             final trace = LookupTrace(
               rawBarcode: cleanBarcode,
               barcodeFormat: format,
               steps: steps,
               result: p,
+              status: status,
             );
             lastTrace = trace;
             return p;
           }
         } else if (response.statusCode == 404) {
-          steps.add('OFF API ($candidate): Status 404 (Not in Open Food Facts database)');
+          steps.add('OFF API v3 ($candidate): Status 404 (Not in Open Food Facts database)');
         } else {
-          steps.add('OFF API ($candidate): HTTP ${response.statusCode}');
+          steps.add('OFF API v3 ($candidate): HTTP ${response.statusCode}');
         }
       } on TimeoutException {
         traceError = 'Network timeout contacting Open Food Facts (5s exceeded)';
-        steps.add('OFF API ($candidate): TIMEOUT');
+        steps.add('OFF API v3 ($candidate): TIMEOUT');
         debugPrint('[OFF Lookup] Timeout connecting to Open Food Facts');
       } on SocketException catch (se) {
         traceError = 'Device appears offline or network unreachable ($se)';
-        steps.add('OFF API ($candidate): OFFLINE/NETWORK_ERROR');
+        steps.add('OFF API v3 ($candidate): OFFLINE/NETWORK_ERROR');
         debugPrint('[OFF Lookup] SocketException: $se');
       } catch (e) {
         traceError = 'Lookup error: $e';
-        steps.add('OFF API ($candidate): ERROR ($e)');
+        steps.add('OFF API v3 ($candidate): ERROR ($e)');
         debugPrint('[OFF Lookup] Exception: $e');
       }
+    }
+
+    final LookupResultStatus finalStatus;
+    if (traceError != null &&
+        (traceError.contains('offline') ||
+            traceError.contains('timeout') ||
+            traceError.contains('Network') ||
+            traceError.contains('SocketException'))) {
+      finalStatus = LookupResultStatus.networkError;
+    } else {
+      finalStatus = LookupResultStatus.notFound;
     }
 
     final trace = LookupTrace(
@@ -194,6 +227,7 @@ class ProductRepository {
       steps: steps,
       error: traceError,
       result: null,
+      status: finalStatus,
     );
     lastTrace = trace;
     return null;
@@ -249,9 +283,13 @@ class ProductRepository {
     final category =
         raw['categories']?.toString().split(',').first.trim() ?? 'Snacks';
 
-    final isLiquid = category.toLowerCase().contains('beverage') ||
-        category.toLowerCase().contains('drink') ||
-        (raw['quantity']?.toString().contains('ml') ?? false);
+    // Derive sugar basis from nutrition_data_per or quantity unit without guessing
+    final nutDataPer = raw['nutrition_data_per']?.toString().toLowerCase().trim();
+    final qtyStr = raw['quantity']?.toString().toLowerCase().trim() ?? '';
+    final isLiquid = nutDataPer == '100ml' ||
+        qtyStr.contains('ml') ||
+        category.toLowerCase().contains('beverage') ||
+        category.toLowerCase().contains('drink');
 
     final basis = isLiquid ? 'per_100ml' : 'per_100g';
 

@@ -93,6 +93,36 @@ class ProductNotFoundScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
+              // Network issue notice if applicable
+              if (trace?.status == LookupResultStatus.networkError) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEBEE),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: GlucioTheme.inkBlack, width: 2),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.wifi_off_rounded, color: GlucioTheme.levelHigh, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          trace?.error ?? 'Network error connecting to Open Food Facts.',
+                          style: const TextStyle(
+                            fontFamily: GlucioTheme.fontBody,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: GlucioTheme.levelHigh,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
               // Monospace Barcode Chip
               Center(
                 child: Container(

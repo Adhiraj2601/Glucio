@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/glucio_theme.dart';
 import 'data/repositories/product_repository.dart';
+import 'features/log/presentation/widgets/daily_tracker_card.dart';
 import 'features/product/presentation/product_not_found_screen.dart';
 import 'features/product/presentation/product_result_screen.dart';
 import 'features/scan/presentation/scanner_screen.dart';
@@ -253,6 +254,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Slice 2: Today's Sugar Tracker Card
+              const DailyTrackerCard(),
+              const SizedBox(height: 18),
+
               // Hero Camera Scan Card
               Container(
                 padding: const EdgeInsets.all(22),
@@ -376,60 +381,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // WHO Daily Sugar Context Card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: GlucioTheme.cardDecoration(
-                  surface: GlucioTheme.cardCream,
-                  radius: 16,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: GlucioTheme.levelLow.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: GlucioTheme.inkBlack, width: 1.5),
-                      ),
-                      child: const Icon(
-                        Icons.health_and_safety_outlined,
-                        color: GlucioTheme.inkBlack,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'WHO Free Sugar Target',
-                            style: TextStyle(
-                              fontFamily: GlucioTheme.fontBody,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: GlucioTheme.inkBlack,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Max 25g/day (~6¼ tsp). Most Indian packaged drinks or snacks exceed this in 1 serve!',
-                            style: TextStyle(
-                              fontFamily: GlucioTheme.fontBody,
-                              fontSize: 11,
-                              color: Colors.black87,
-                              height: 1.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               const SizedBox(height: 22),
 
               // Quick Test Seed Products Section
@@ -445,7 +396,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   Text(
-                    'Slice 1.5 Test Catalog',
+                    'Slice 2 Test Catalog',
                     style: TextStyle(
                       fontFamily: GlucioTheme.fontBody,
                       fontSize: 11,
