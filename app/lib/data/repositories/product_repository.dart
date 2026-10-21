@@ -1,3 +1,6 @@
+export 'off_repository.dart';
+import '../models/off_product_dto.dart';
+import '../models/scan_history_entry.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -123,7 +126,23 @@ class ProductRepository {
 
     // 2. Check bundled seed catalog
     if (_seedCache.containsKey(cleanBarcode)) {
-      final seedProduct = _seedCache[cleanBarcode]!;
+      var seedProduct = _seedCache[cleanBarcode]!;
+      try {
+        final cachedDetails = await _localDb.getProductDetails(cleanBarcode);
+        if (cachedDetails != null) {
+          seedProduct = seedProduct.copyWith(details: cachedDetails);
+        }
+        await _localDb.insertScanHistory(ScanHistoryEntry(
+          barcode: seedProduct.barcode,
+          name: seedProduct.name,
+          brand: seedProduct.brand,
+          category: seedProduct.category,
+          sugarPer100: seedProduct.sugarPer100,
+          nutriScoreGrade: seedProduct.nutriScoreGrade,
+          novaGroup: seedProduct.novaGroup,
+          scannedAt: DateTime.now(),
+        ));
+      } catch (_) {}
       steps.add('Seed Catalog: HIT (${seedProduct.name})');
       final status = seedProduct.sugarPer100 != null
           ? LookupResultStatus.success
@@ -155,13 +174,13 @@ class ProductRepository {
     for (final candidate in queryCandidates) {
       try {
         final url = Uri.parse(
-          'https://world.openfoodfacts.org/api/v3/product/$candidate.json?fields=product_name,product_name_en,brands,categories,quantity,serving_size,serving_quantity,product_quantity,nutriments,nutrition_data_per',
+          'https://world.openfoodfacts.org/api/v2/product/$candidate.json?fields=code,product_name,brands,quantity,serving_size,image_front_url,image_front_small_url,image_ingredients_url,image_nutrition_url,ingredients_text,ingredients_analysis_tags,allergens_tags,traces_tags,additives_tags,labels_tags,origins,origins_tags,packaging,packaging_tags,categories_tags,nutriments,nutrient_levels,nutriscore_grade,nutriscore_data,nova_group,ecoscore_grade,ecoscore_data,nutrition_data_per',
         );
         debugPrint('[OFF Lookup] Requesting URL: $url');
         final response = await _client.get(
           url,
           headers: {
-            'User-Agent': 'Glucio - Android - Version 1.5 (Student Pair Programming)',
+            'User-Agent': 'Glucio/1.0.0 (com.glucio.app; Android)',
           },
         ).timeout(const Duration(seconds: 5));
 
@@ -170,14 +189,29 @@ class ProductRepository {
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body) as Map<String, dynamic>;
           final productMap = data['product'] as Map<String, dynamic>?;
-          steps.add('OFF API v3 ($candidate): Status 200, product_present=${productMap != null}');
+          steps.add('OFF API v2 ($candidate): Status 200, product_present=${productMap != null}');
 
           if (productMap != null) {
-            final p = _parseOpenFoodFacts(
-              cleanBarcode,
-              productMap,
-            );
+            final dto = OffProductDto.fromJson(productMap);
+            final p = dto.toProduct();
             _seedCache[cleanBarcode] = p; // cache for session
+            try {
+              if (p.details != null) {
+                await _localDb.saveProductDetails(p.details!);
+              }
+              await _localDb.insertScanHistory(ScanHistoryEntry(
+                barcode: cleanBarcode,
+                name: p.name,
+                brand: p.brand,
+                category: p.category,
+                sugarPer100: p.sugarPer100,
+                nutriScoreGrade: p.nutriScoreGrade,
+                novaGroup: p.novaGroup,
+                scannedAt: DateTime.now(),
+              ));
+            } catch (e) {
+              debugPrint('[OFF Lookup] Error caching to SQLite: $e');
+            }
             final status = p.sugarPer100 != null
                 ? LookupResultStatus.success
                 : LookupResultStatus.foundMissingSugar;
@@ -192,9 +226,9 @@ class ProductRepository {
             return p;
           }
         } else if (response.statusCode == 404) {
-          steps.add('OFF API v3 ($candidate): Status 404 (Not in Open Food Facts database)');
+          steps.add('OFF API v2 ($candidate): Status 404 (Not in Open Food Facts database)');
         } else {
-          steps.add('OFF API v3 ($candidate): HTTP ${response.statusCode}');
+          steps.add('OFF API v2 ($candidate): HTTP ${response.statusCode}');
         }
       } on TimeoutException {
         traceError = 'Network timeout contacting Open Food Facts (5s exceeded)';
@@ -234,90 +268,6 @@ class ProductRepository {
     return null;
   }
 
-  /// Parses Open Food Facts raw product JSON into domain Product model.
-  /// Strictly keeps sugarPer100 as null if not explicitly declared in nutriments.
-  Product _parseOpenFoodFacts(String barcode, Map<String, dynamic> raw) {
-    final nutriments = raw['nutriments'] as Map<String, dynamic>? ?? {};
-
-    // RULE: Missing or unknown nutrition values must NEVER be defaulted to 0
-    double? sugar100;
-    if (nutriments['sugars_100g'] != null) {
-      sugar100 = (nutriments['sugars_100g'] as num?)?.toDouble();
-    } else if (nutriments['sugars_value'] != null) {
-      sugar100 = (nutriments['sugars_value'] as num?)?.toDouble();
-    }
-
-    final double? addedSugar100 =
-        (nutriments['added-sugars_100g'] as num?)?.toDouble();
-
-    // Parse serving size in grams if available
-    double servingG = 30.0;
-    String? servingDescription;
-    if (raw['serving_quantity'] != null) {
-      servingG = (raw['serving_quantity'] as num).toDouble();
-    } else if (raw['serving_size'] != null) {
-      final sSize = raw['serving_size'].toString();
-      servingDescription = sSize;
-      final match = RegExp(r'(\d+(\.\d+)?)').firstMatch(sSize);
-      if (match != null) {
-        servingG = double.tryParse(match.group(1)!) ?? 30.0;
-      }
-    }
-
-    // Parse pack size in grams if available
-    double packG = 100.0;
-    if (raw['product_quantity'] != null) {
-      packG = (raw['product_quantity'] as num).toDouble();
-    } else if (raw['quantity'] != null) {
-      final match =
-          RegExp(r'(\d+(\.\d+)?)').firstMatch(raw['quantity'].toString());
-      if (match != null) {
-        packG = double.tryParse(match.group(1)!) ?? 100.0;
-      }
-    }
-
-    final name = raw['product_name']?.toString() ??
-        raw['product_name_en']?.toString() ??
-        'Packaged Food';
-
-    final brand = raw['brands']?.toString() ?? 'Generic';
-    final category =
-        raw['categories']?.toString().split(',').first.trim() ?? 'Snacks';
-
-    // Derive sugar basis from nutrition_data_per or quantity unit without guessing
-    final nutDataPer = raw['nutrition_data_per']?.toString().toLowerCase().trim();
-    final qtyStr = raw['quantity']?.toString().toLowerCase().trim() ?? '';
-    final isLiquid = nutDataPer == '100ml' ||
-        qtyStr.contains('ml') ||
-        category.toLowerCase().contains('beverage') ||
-        category.toLowerCase().contains('drink');
-
-    final basis = isLiquid ? 'per_100ml' : 'per_100g';
-
-    final portions = PortionBuilder.buildPortions(
-      category: category,
-      packSize: packG,
-      servingSize: servingG,
-      servingDescription: servingDescription,
-      basis: isLiquid ? 'ml' : 'g',
-    );
-
-    return Product(
-      barcode: barcode,
-      name: name,
-      brand: brand,
-      category: category,
-      packSize: packG > 0 ? packG : 100.0,
-      servingSize: servingG > 0 ? servingG : 30.0,
-      sugarPer100: sugar100,
-      addedSugarPer100: addedSugar100,
-      sugarBasis: basis,
-      portions: portions,
-      hiddenSugarFlag: false,
-      source: 'openfoodfacts',
-      verified: false,
-    );
-  }
 
   /// Exposes all currently loaded seed products for testing/inspection.
   List<Product> getAllCachedProducts() => _seedCache.values.toList();

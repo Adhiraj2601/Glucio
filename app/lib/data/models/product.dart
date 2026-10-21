@@ -1,3 +1,4 @@
+import 'product_details.dart';
 import '../../core/utils/portion_builder.dart';
 import '../../core/utils/sugar_calculator.dart';
 import 'portion.dart';
@@ -17,6 +18,7 @@ class Product {
   final bool hiddenSugarFlag;
   final String source;
   final bool verified;
+  final ProductDetails? details;
 
   const Product({
     required this.barcode,
@@ -32,6 +34,7 @@ class Product {
     this.hiddenSugarFlag = false,
     required this.source,
     required this.verified,
+    this.details,
   });
 
   /// Factory from JSON map (local seed asset, local SQLite, or API response).
@@ -94,6 +97,9 @@ class Product {
       hiddenSugarFlag: json['hidden_sugar_flag'] == true,
       source: json['source']?.toString() ?? 'seed-unverified',
       verified: json['verified'] == true,
+      details: json['details'] != null
+          ? ProductDetails.fromJson(json['details'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -113,6 +119,7 @@ class Product {
       'hidden_sugar_flag': hiddenSugarFlag ? 1 : 0,
       'source': source,
       'verified': verified ? 1 : 0,
+      if (details != null) 'details': details!.toJson(),
     };
   }
 
@@ -159,4 +166,50 @@ class Product {
   double get packTeaspoons => packSugarG / 4.0;
   double get servingDailyPercent => (servingSugarG / 25.0) * 100.0;
   double get packDailyPercent => (packSugarG / 25.0) * 100.0;
+
+  // Extended OFF getters (convenience wrappers over details)
+  String? get nutriScoreGrade => details?.nutriScoreGrade;
+  int? get novaGroup => details?.novaGroup;
+  String? get ecoScoreGrade => details?.ecoScoreGrade;
+  String? get ingredientsText => details?.ingredientsText;
+  List<String> get allergenTags => details?.allergenTags ?? const [];
+  List<String> get additiveTags => details?.additiveTags ?? const [];
+  ProductImageUrls? get imageUrls => details?.imageUrls;
+  NutrientLevels? get nutrientLevels => details?.nutrientLevels;
+  FullNutriments? get fullNutriments => details?.fullNutriments;
+  IngredientsAnalysis? get ingredientsAnalysis => details?.ingredientsAnalysis;
+
+  Product copyWith({
+    String? barcode,
+    String? name,
+    String? brand,
+    String? category,
+    double? packSize,
+    double? servingSize,
+    double? sugarPer100,
+    double? addedSugarPer100,
+    String? sugarBasis,
+    List<Portion>? portions,
+    bool? hiddenSugarFlag,
+    String? source,
+    bool? verified,
+    ProductDetails? details,
+  }) {
+    return Product(
+      barcode: barcode ?? this.barcode,
+      name: name ?? this.name,
+      brand: brand ?? this.brand,
+      category: category ?? this.category,
+      packSize: packSize ?? this.packSize,
+      servingSize: servingSize ?? this.servingSize,
+      sugarPer100: sugarPer100 ?? this.sugarPer100,
+      addedSugarPer100: addedSugarPer100 ?? this.addedSugarPer100,
+      sugarBasis: sugarBasis ?? this.sugarBasis,
+      portions: portions ?? this.portions,
+      hiddenSugarFlag: hiddenSugarFlag ?? this.hiddenSugarFlag,
+      source: source ?? this.source,
+      verified: verified ?? this.verified,
+      details: details ?? this.details,
+    );
+  }
 }

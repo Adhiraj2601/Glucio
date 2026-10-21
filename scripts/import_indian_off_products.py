@@ -21,7 +21,7 @@ import time
 import urllib.parse
 import urllib.request
 
-USER_AGENT = "GlucioApp - Android/1.0 (contact: student-dev@glucio.app)"
+USER_AGENT = "Glucio/1.0.0 (com.glucio.app; Android)"
 API_HOST = "https://in.openfoodfacts.net"
 
 POPULAR_INDIAN_BRANDS = [
@@ -273,6 +273,59 @@ def parse_off_product(raw: dict) -> dict | None:
     savory_categories = ["sauces", "instant noodles", "chips", "namkeen", "bread"]
     hidden_sugar = (category in savory_categories) and (sugar is not None and sugar >= 5.0)
 
+    # Enriched details
+    nova_val = None
+    if raw.get("nova_group") is not None:
+        try:
+            nova_val = int(raw["nova_group"])
+        except (ValueError, TypeError):
+            pass
+
+    details = {
+        "barcode": barcode,
+        "quantity": raw.get("quantity"),
+        "image_front_url": raw.get("image_front_url"),
+        "image_front_small_url": raw.get("image_front_small_url"),
+        "image_ingredients_url": raw.get("image_ingredients_url"),
+        "image_nutrition_url": raw.get("image_nutrition_url"),
+        "ingredients_text": raw.get("ingredients_text_en") or raw.get("ingredients_text"),
+        "ingredients_analysis_tags": raw.get("ingredients_analysis_tags") or [],
+        "allergens_tags": raw.get("allergens_tags") or [],
+        "traces_tags": raw.get("traces_tags") or [],
+        "additives_tags": raw.get("additives_tags") or [],
+        "labels_tags": raw.get("labels_tags") or [],
+        "origins": raw.get("origins"),
+        "packaging": raw.get("packaging"),
+        "packaging_tags": raw.get("packaging_tags") or [],
+        "categories_tags": raw.get("categories_tags") or [],
+        "nutriscore_grade": (raw.get("nutriscore_grade") or "").lower() or None,
+        "nutriscore_data": raw.get("nutriscore_data") if isinstance(raw.get("nutriscore_data"), dict) else None,
+        "nova_group": nova_val,
+        "ecoscore_grade": (raw.get("ecoscore_grade") or "").lower() or None,
+        "ecoscore_data": raw.get("ecoscore_data") if isinstance(raw.get("ecoscore_data"), dict) else None,
+        "nutrient_levels": raw.get("nutrient_levels") if isinstance(raw.get("nutrient_levels"), dict) else None,
+        "full_nutriments": {
+            "energy_kcal_100g": nutriments.get("energy-kcal_100g") or nutriments.get("energy-kcal"),
+            "energy_kcal_serving": nutriments.get("energy-kcal_serving"),
+            "fat_100g": nutriments.get("fat_100g") or nutriments.get("fat_value"),
+            "fat_serving": nutriments.get("fat_serving"),
+            "saturated_fat_100g": nutriments.get("saturated-fat_100g") or nutriments.get("saturated-fat_value"),
+            "saturated_fat_serving": nutriments.get("saturated-fat_serving"),
+            "carbohydrates_100g": nutriments.get("carbohydrates_100g") or nutriments.get("carbohydrates_value"),
+            "carbohydrates_serving": nutriments.get("carbohydrates_serving"),
+            "sugars_100g": sugar,
+            "sugars_serving": nutriments.get("sugars_serving"),
+            "fiber_100g": nutriments.get("fiber_100g") or nutriments.get("fiber_value"),
+            "fiber_serving": nutriments.get("fiber_serving"),
+            "proteins_100g": nutriments.get("proteins_100g") or nutriments.get("proteins_value"),
+            "proteins_serving": nutriments.get("proteins_serving"),
+            "salt_100g": nutriments.get("salt_100g") or nutriments.get("salt_value"),
+            "salt_serving": nutriments.get("salt_serving"),
+            "sodium_100g": nutriments.get("sodium_100g") or nutriments.get("sodium_value"),
+            "sodium_serving": nutriments.get("sodium_serving"),
+        },
+    }
+
     return {
         "barcode": barcode,
         "name": name,
@@ -287,6 +340,7 @@ def parse_off_product(raw: dict) -> dict | None:
         "hidden_sugar_flag": hidden_sugar,
         "source": "openfoodfacts-import",
         "verified": False,
+        "details": details,
     }
 
 
@@ -310,7 +364,7 @@ def fetch_popular_brands(limit_per_brand: int = 20) -> list:
     """Fetches products for top Indian packaged food brands."""
     print(f"\n[Brand Ingestion] Querying {len(POPULAR_INDIAN_BRANDS)} iconic Indian consumer brands...")
     all_raw = []
-    fields = "code,product_name,product_name_en,brands,categories,quantity,product_quantity,serving_size,serving_quantity,nutriments"
+    fields = "code,product_name,product_name_en,brands,categories,categories_tags,quantity,product_quantity,serving_size,serving_quantity,image_front_url,image_front_small_url,image_ingredients_url,image_nutrition_url,ingredients_text,ingredients_text_en,ingredients_analysis_tags,allergens_tags,traces_tags,additives_tags,labels_tags,origins,origins_tags,packaging,packaging_tags,nutriments,nutrient_levels,nutriscore_grade,nutriscore_data,nova_group,ecoscore_grade,ecoscore_data,nutrition_data_per"
 
     for brand in POPULAR_INDIAN_BRANDS:
         url = (
@@ -331,7 +385,7 @@ def fetch_country_india(total_target: int = 200) -> list:
     all_raw = []
     page = 1
     page_size = min(100, total_target)
-    fields = "code,product_name,product_name_en,brands,categories,quantity,product_quantity,serving_size,serving_quantity,nutriments"
+    fields = "code,product_name,product_name_en,brands,categories,categories_tags,quantity,product_quantity,serving_size,serving_quantity,image_front_url,image_front_small_url,image_ingredients_url,image_nutrition_url,ingredients_text,ingredients_text_en,ingredients_analysis_tags,allergens_tags,traces_tags,additives_tags,labels_tags,origins,origins_tags,packaging,packaging_tags,nutriments,nutrient_levels,nutriscore_grade,nutriscore_data,nova_group,ecoscore_grade,ecoscore_data,nutrition_data_per"
 
     while len(all_raw) < total_target:
         url = (
