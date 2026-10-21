@@ -2,13 +2,14 @@
 """
 Open Food Facts Indian Product Importer & Validator for Glucio.
 
-Fetches Indian packaged food products from Open Food Facts API v2 / export dumps,
-strictly validates EAN checksums, preserves NULL for missing sugar data,
+Fetches Indian packaged food products from Open Food Facts API v2 / search mirror,
+strictly validates EAN-13/EAN-8 checksums, preserves NULL for missing sugar data,
 synthesizes household portions, and merges into assets/seed_products.json.
 
 Usage:
-    python scripts/import_indian_off_products.py --sample 30 --sync
-    python scripts/import_indian_off_products.py --file path/to/dump.jsonl --output data/imported.json
+    python scripts/import_indian_off_products.py --count 200 --sync
+    python scripts/import_indian_off_products.py --brands-only --sync
+    python scripts/import_indian_off_products.py --file path/to/dump.jsonl --sync
 """
 
 import argparse
@@ -16,14 +17,41 @@ import json
 import os
 import re
 import sys
-import urllib.request
+import time
 import urllib.parse
+import urllib.request
 
-USER_AGENT = "Glucio - Android - Version 1.5 (Student Pair Programming - FSSAI Nutrition)"
+USER_AGENT = "GlucioApp - Android/1.0 (contact: student-dev@glucio.app)"
+API_HOST = "https://in.openfoodfacts.net"
+
+POPULAR_INDIAN_BRANDS = [
+    "amul",
+    "haldiram-s",
+    "haldiram",
+    "britannia",
+    "parle",
+    "cadbury",
+    "kurkure",
+    "lays",
+    "sunfeast",
+    "dabur",
+    "mtr",
+    "paper-boat",
+    "bikaji",
+    "bikano",
+    "kissan",
+    "patanjali",
+    "tata",
+    "real",
+    "frooti",
+    "nestle",
+    "mother-dairy",
+    "maggi",
+]
 
 
 def validate_ean_checksum(code: str) -> bool:
-    """Validates EAN-13 or EAN-8 checksums."""
+    """Validates EAN-13, EAN-8, or UPC-A checksums mathematically."""
     s = str(code).strip()
     if not s.isdigit():
         return False
@@ -38,7 +66,6 @@ def validate_ean_checksum(code: str) -> bool:
         check = (10 - (total % 10)) % 10
         return check == int(s[12])
     elif len(s) == 12:
-        # UPC-A
         weights = [3, 1] * 5 + [3]
         total = sum(int(s[i]) * weights[i] for i in range(11))
         check = (10 - (total % 10)) % 10
@@ -46,30 +73,30 @@ def validate_ean_checksum(code: str) -> bool:
     return False
 
 
-def normalize_category(categories_str: str) -> str:
+def normalize_category(categories_str: str, product_name: str = "") -> str:
     """Classifies a product into one of the supported Glucio category buckets."""
-    cat = (categories_str or "").lower()
-    if any(k in cat for k in ["biscuit", "cookie", "cracker", "wafer"]):
+    cat = f"{categories_str} {product_name}".lower()
+    if any(k in cat for k in ["biscuit", "cookie", "cracker", "wafer", "rusk"]):
         return "biscuits"
-    if any(k in cat for k in ["beverage", "drink", "juice", "soda", "cola", "tea", "coffee"]):
+    if any(k in cat for k in ["beverage", "drink", "juice", "soda", "cola", "tea", "coffee", "lassi", "sharbat"]):
         return "beverage"
-    if any(k in cat for k in ["namkeen", "bhujia", "sev", "mixture", "dal"]):
+    if any(k in cat for k in ["namkeen", "bhujia", "sev", "mixture", "dal moth", "makhana", "chana", "peanuts"]):
         return "namkeen"
-    if any(k in cat for k in ["noodle", "maggi", "pasta"]):
+    if any(k in cat for k in ["noodle", "maggi", "pasta", "yippee"]):
         return "instant noodles"
     if any(k in cat for k in ["sauce", "ketchup", "chutney"]):
         return "sauces"
-    if any(k in cat for k in ["chip", "crisp", "kurkure", "snack"]):
+    if any(k in cat for k in ["chip", "crisp", "kurkure", "wafer snack", "nacho"]):
         return "chips"
-    if any(k in cat for k in ["chocolate", "candy", "confectionery"]):
+    if any(k in cat for k in ["chocolate", "candy", "confectionery", "toffee", "bar"]):
         return "confectionery"
-    if any(k in cat for k in ["milk", "yogurt", "curd", "dahi", "dairy", "paneer"]):
+    if any(k in cat for k in ["milk", "yogurt", "curd", "dahi", "dairy", "paneer", "cheese", "butter"]):
         return "dairy"
     if any(k in cat for k in ["cereal", "oat", "muesli", "corn flake"]):
         return "cereals"
-    if any(k in cat for k in ["bread", "toast", "rusk", "bakery"]):
+    if any(k in cat for k in ["bread", "toast", "pav", "bun", "bakery"]):
         return "bread"
-    if any(k in cat for k in ["sweet", "mithai", "halwa", "laddu", "jamun"]):
+    if any(k in cat for k in ["sweet", "mithai", "halwa", "laddu", "jamun", "rasgulla"]):
         return "sweets"
     return "snacks"
 
@@ -111,7 +138,7 @@ def build_portions(category: str, pack_size: float, serving_size: float, is_liqu
             "kind": "glass",
             "source": "estimate"
         })
-    elif category in ["chips", "namkeen"]:
+    elif category in ["chips", "namkeen", "snacks"]:
         portions.append({
             "label": "1 handful",
             "amount": 25.0,
@@ -125,6 +152,22 @@ def build_portions(category: str, pack_size: float, serving_size: float, is_liqu
             "amount": serving_size if serving_size > 0 else 70.0,
             "basis": "g",
             "kind": "serving",
+            "source": "estimate"
+        })
+    elif category == "dairy":
+        portions.append({
+            "label": "1 cup",
+            "amount": 100.0,
+            "basis": unit,
+            "kind": "serving",
+            "source": "estimate"
+        })
+    elif category == "confectionery":
+        portions.append({
+            "label": "1 piece",
+            "amount": 15.0,
+            "basis": "g",
+            "kind": "unit",
             "source": "estimate"
         })
 
@@ -152,43 +195,57 @@ def build_portions(category: str, pack_size: float, serving_size: float, is_liqu
 
 def parse_off_product(raw: dict) -> dict | None:
     """Maps and validates an Open Food Facts product dict into Glucio Product schema."""
-    barcode = str(raw.get("code") or raw.get("_id") or "").strip()
+    barcode = str(raw.get("code") or raw.get("barcode") or raw.get("_id") or "").strip()
     if not barcode:
         return None
 
-    # Validate Checksum
+    # Validate Checksum strictly
     if not validate_ean_checksum(barcode):
         return None
 
-    name = raw.get("product_name_en") or raw.get("product_name") or ""
+    name = raw.get("product_name_en") or raw.get("product_name") or raw.get("name") or ""
     name = name.strip()
-    if not name:
+    if not name or len(name) < 2:
         return None
 
-    brand = raw.get("brands") or "Generic"
+    brand = raw.get("brands") or raw.get("brand") or ""
     brand = brand.split(",")[0].strip()
+    if not brand:
+        brand = "Generic"
 
-    categories_raw = raw.get("categories") or ""
-    category = normalize_category(categories_raw)
+    categories_raw = raw.get("categories") or raw.get("category") or ""
+    category = normalize_category(categories_raw, name)
 
     nutriments = raw.get("nutriments") or {}
-    sugar_raw = nutriments.get("sugars_100g")
-    sugar = float(sugar_raw) if sugar_raw is not None else None
+    sugar_raw = nutriments.get("sugars_100g") if "nutriments" in raw else raw.get("sugar_per_100g")
+    sugar = None
+    if sugar_raw is not None and str(sugar_raw).strip() != "":
+        try:
+            val = float(sugar_raw)
+            if val >= 0:
+                sugar = round(val, 2)
+        except (ValueError, TypeError):
+            sugar = None
 
-    # Enforce safety rule: sugar must never be falsely defaulted to 0.0
-    if sugar is not None and sugar < 0:
-        sugar = 0.0
+    added_sugar_raw = nutriments.get("added-sugars_100g") if "nutriments" in raw else raw.get("added_sugar_per_100g")
+    added_sugar = None
+    if added_sugar_raw is not None and str(added_sugar_raw).strip() != "":
+        try:
+            val = float(added_sugar_raw)
+            if val >= 0:
+                added_sugar = round(val, 2)
+        except (ValueError, TypeError):
+            added_sugar = None
 
-    added_sugar_raw = nutriments.get("added-sugars_100g")
-    added_sugar = float(added_sugar_raw) if added_sugar_raw is not None else None
-
-    is_liquid = category == "beverage" or "ml" in str(raw.get("quantity", "")).lower()
+    is_liquid = category == "beverage" or "ml" in str(raw.get("quantity", "")).lower() or raw.get("sugar_basis") == "per_100ml"
     basis = "per_100ml" if is_liquid else "per_100g"
 
     # Pack and Serving size
     pack_size = 100.0
     try:
-        if raw.get("product_quantity"):
+        if raw.get("pack_size_g"):
+            pack_size = float(raw["pack_size_g"])
+        elif raw.get("product_quantity"):
             pack_size = float(raw["product_quantity"])
         elif raw.get("quantity"):
             m = re.search(r"(\d+(?:\.\d+)?)", str(raw["quantity"]))
@@ -199,7 +256,9 @@ def parse_off_product(raw: dict) -> dict | None:
 
     serving_size = 30.0
     try:
-        if raw.get("serving_quantity"):
+        if raw.get("serving_size_g"):
+            serving_size = float(raw["serving_size_g"])
+        elif raw.get("serving_quantity"):
             serving_size = float(raw["serving_quantity"])
         elif raw.get("serving_size"):
             m = re.search(r"(\d+(?:\.\d+)?)", str(raw["serving_size"]))
@@ -227,37 +286,79 @@ def parse_off_product(raw: dict) -> dict | None:
         "portions": portions,
         "hidden_sugar_flag": hidden_sugar,
         "source": "openfoodfacts-import",
-        "verified": False
+        "verified": False,
     }
 
 
-def fetch_from_api(count: int = 30) -> list:
-    """Fetches popular Indian products from Open Food Facts Search API v2."""
-    print(f"Fetching {count} Indian products from Open Food Facts API v2...")
-    url = (
-        f"https://world.openfoodfacts.org/cgi/search.pl?"
-        f"action=process&tagtype_0=countries&tag_contains_0=contains&tag_0=india"
-        f"&page_size={count}&json=1"
-        f"&fields=code,product_name,product_name_en,brands,categories,quantity,product_quantity,serving_size,serving_quantity,nutriments"
-    )
-
+def fetch_page(url: str, retries: int = 2) -> list:
+    """Fetches a single page of products with retry logic."""
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            products = data.get("products", [])
-            print(f"Received {len(products)} raw products from API.")
-            return products
-    except Exception as e:
-        print(f"Error calling Open Food Facts API: {e}")
-        return []
+    for attempt in range(retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data.get("products", [])
+        except Exception as e:
+            if attempt == retries:
+                print(f"  [Error] {url}: {e}")
+                return []
+            time.sleep(1.0)
+    return []
+
+
+def fetch_popular_brands(limit_per_brand: int = 20) -> list:
+    """Fetches products for top Indian packaged food brands."""
+    print(f"\n[Brand Ingestion] Querying {len(POPULAR_INDIAN_BRANDS)} iconic Indian consumer brands...")
+    all_raw = []
+    fields = "code,product_name,product_name_en,brands,categories,quantity,product_quantity,serving_size,serving_quantity,nutriments"
+
+    for brand in POPULAR_INDIAN_BRANDS:
+        url = (
+            f"{API_HOST}/api/v2/search?"
+            f"brands_tags={brand}&page_size={limit_per_brand}&fields={fields}"
+        )
+        products = fetch_page(url)
+        print(f"  • {brand.capitalize():<15} -> {len(products)} products")
+        all_raw.extend(products)
+        time.sleep(0.3)  # Respect API rate limits
+
+    return all_raw
+
+
+def fetch_country_india(total_target: int = 200) -> list:
+    """Fetches paginated Indian products from Open Food Facts."""
+    print(f"\n[Country Ingestion] Fetching up to {total_target} Indian products across pages...")
+    all_raw = []
+    page = 1
+    page_size = min(100, total_target)
+    fields = "code,product_name,product_name_en,brands,categories,quantity,product_quantity,serving_size,serving_quantity,nutriments"
+
+    while len(all_raw) < total_target:
+        url = (
+            f"{API_HOST}/api/v2/search?"
+            f"countries_tags_en=india&page_size={page_size}&page={page}&fields={fields}"
+        )
+        prods = fetch_page(url)
+        if not prods:
+            print(f"  No more products returned on page {page}.")
+            break
+        all_raw.extend(prods)
+        print(f"  • Page {page:<2} -> received {len(prods)} products (Total: {len(all_raw)})")
+        if len(prods) < page_size:
+            break
+        page += 1
+        time.sleep(0.4)
+
+    return all_raw[:total_target]
 
 
 def main():
     parser = argparse.ArgumentParser(description="Import Indian products from Open Food Facts.")
-    parser.add_argument("--sample", type=int, default=0, help="Fetch sample count from live API")
+    parser.add_argument("--count", type=int, default=200, help="Target total products to fetch from country search")
+    parser.add_argument("--brands-only", action="store_true", help="Fetch only popular Indian brands")
+    parser.add_argument("--include-brands", action="store_true", default=True, help="Include popular Indian brands in query")
     parser.add_argument("--file", type=str, default="", help="Read from local JSON or JSONL file")
-    parser.add_argument("--output", type=str, default="", help="Output JSON path")
+    parser.add_argument("--output", type=str, default="data/imported_indian_products.json", help="Output JSON path")
     parser.add_argument("--sync", action="store_true", help="Sync directly into app/assets/seed_products.json")
     args = parser.parse_args()
 
@@ -271,13 +372,17 @@ def main():
                         raw_items.append(json.loads(line))
             else:
                 raw_items = json.load(f)
-    elif args.sample > 0:
-        raw_items = fetch_from_api(args.sample)
     else:
-        print("Nothing to do. Specify --sample <N> or --file <path>.")
-        sys.exit(0)
+        if args.brands_only:
+            raw_items = fetch_popular_brands(limit_per_brand=25)
+        else:
+            # Combined strategy: Popular Indian brands + General country query
+            country_items = fetch_country_india(total_target=args.count)
+            brand_items = fetch_popular_brands(limit_per_brand=15)
+            raw_items = country_items + brand_items
 
-    parsed = []
+    print(f"\nProcessing {len(raw_items)} raw items...")
+    parsed_by_barcode = {}
     skipped_checksum = 0
     missing_sugar = 0
 
@@ -288,36 +393,59 @@ def main():
             continue
         if p["sugar_per_100g"] is None:
             missing_sugar += 1
-        parsed.append(p)
+        # Deduplicate
+        parsed_by_barcode[p["barcode"]] = p
 
-    print(f"\n--- IMPORT SUMMARY ---")
-    print(f"Total processed:       {len(raw_items)}")
-    print(f"Valid parsed products: {len(parsed)}")
-    print(f"Skipped (checksum/bad):{skipped_checksum}")
-    print(f"Products missing sugar:{missing_sugar} (strictly preserved as NULL)")
+    parsed = list(parsed_by_barcode.values())
 
-    if args.output:
-        with open(args.output, "w", encoding="utf-8") as f:
-            json.dump(parsed, f, indent=2, ensure_ascii=False)
-        print(f"Saved to: {args.output}")
+    print(f"\n==========================================")
+    print(f"       OPEN FOOD FACTS IMPORT SUMMARY      ")
+    print(f"==========================================")
+    print(f"Raw items fetched:         {len(raw_items)}")
+    print(f"Unique valid products:     {len(parsed)}")
+    print(f"Skipped (checksum/no-name):{skipped_checksum}")
+    print(f"Products missing sugar:    {missing_sugar} (strictly preserved as NULL)")
+    
+    # Category Breakdown
+    cats = {}
+    for p in parsed:
+        cats[p["category"]] = cats.get(p["category"], 0) + 1
+    print("\nCategory Distribution:")
+    for c, cnt in sorted(cats.items(), key=lambda x: -x[1]):
+        print(f"  • {c:<16}: {cnt}")
+
+    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
+    with open(args.output, "w", encoding="utf-8") as f:
+        json.dump(parsed, f, indent=2, ensure_ascii=False)
+    print(f"\n[Saved] Backup catalog saved to: {args.output}")
 
     if args.sync:
         seed_path = "app/assets/seed_products.json"
         if os.path.exists(seed_path):
             with open(seed_path, "r", encoding="utf-8") as f:
                 existing = json.load(f)
-            
+
+            # Preserve existing seed products and their verified status
             existing_barcodes = {p["barcode"]: p for p in existing}
+            initial_count = len(existing_barcodes)
             added = 0
+
             for p in parsed:
-                if p["barcode"] not in existing_barcodes:
-                    existing_barcodes[p["barcode"]] = p
+                b = p["barcode"]
+                if b not in existing_barcodes:
+                    existing_barcodes[b] = p
                     added += 1
+                else:
+                    existing_item = existing_barcodes[b]
+                    if not any(pt["label"].lower().startswith("whole pack") for pt in existing_item.get("portions", [])):
+                        existing_item["portions"] = p["portions"]
 
             merged = list(existing_barcodes.values())
             with open(seed_path, "w", encoding="utf-8") as f:
                 json.dump(merged, f, indent=2, ensure_ascii=False)
-            print(f"Synced {added} new products into {seed_path} (Total catalog: {len(merged)})")
+
+            print(f"\n[Synced] Added {added} new Indian products into {seed_path}!")
+            print(f"Total Offline Seed Catalog now: {len(merged)} products (was {initial_count}).")
 
 
 if __name__ == "__main__":
