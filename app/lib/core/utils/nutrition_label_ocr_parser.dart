@@ -60,6 +60,21 @@ class NutritionLabelOcrParser {
     }
   }
 
+  /// Extracts text from an ingredients photo using Google ML Kit on-device OCR.
+  static Future<String> recognizeIngredients(String imagePath) async {
+    final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    try {
+      final inputImage = InputImage.fromFilePath(imagePath);
+      final recognizedText = await textRecognizer.processImage(inputImage);
+      return recognizedText.text.trim();
+    } catch (e, stack) {
+      debugPrint('Error recognizing ingredients OCR: $e\n$stack');
+      return '';
+    } finally {
+      await textRecognizer.close();
+    }
+  }
+
   /// Parses raw recognized text string using regex patterns tailored for Indian nutrition labels.
   static OcrNutritionResult parseText(String rawText) {
     if (rawText.trim().isEmpty) {

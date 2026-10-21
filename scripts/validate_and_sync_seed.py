@@ -160,7 +160,10 @@ def main():
 
     # Merge CSV products over existing JSON
     for p in csv_products:
-        final_products_map[p['barcode']] = p
+        b = p['barcode']
+        if b in final_products_map and 'details' in final_products_map[b]:
+            p['details'] = final_products_map[b]['details']
+        final_products_map[b] = p
 
     # Comprehensive validation of all catalog products
     for barcode, p in final_products_map.items():

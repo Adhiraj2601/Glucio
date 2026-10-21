@@ -142,6 +142,70 @@ class OffRepository {
 
     return resultsMap.values.toList();
   }
+
+  /// Queues a product contribution for background offline sync.
+  Future<int> queueContribution({
+    required String barcode,
+    required Map<String, dynamic> data,
+  }) =>
+      _localDb.queuePendingContribution(barcode, data);
+
+  /// Retrieves all queued contributions from SQLite.
+  Future<List<Map<String, dynamic>>> getPendingContributions() =>
+      _localDb.getPendingContributions();
+
+  /// Submits an edit or product creation to Open Food Facts v2 write API.
+  Future<bool> uploadContribution({
+    required String barcode,
+    required Map<String, dynamic> data,
+    http.Client? client,
+  }) async {
+    final httpClient = client ?? http.Client();
+    try {
+      final uri = Uri.parse('https://world.openfoodfacts.org/cgi/product_jqm2.pl');
+      final response = await httpClient.post(
+        uri,
+        headers: {
+          'User-Agent': 'Glucio/1.0.0 (com.glucio.app; Android)',
+        },
+        body: {
+          'code': barcode,
+          'product_name': data['product_name'] ?? '',
+          'brands': data['brands'] ?? '',
+          'ingredients_text': data['ingredients_text'] ?? '',
+          'nutriment_sugars': data['sugars']?.toString() ?? '',
+          'nutriment_energy-kcal': data['energy']?.toString() ?? '',
+          'comment': 'Contributed via Glucio App',
+        },
+      ).timeout(const Duration(seconds: 10));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    } finally {
+      if (client == null) httpClient.close();
+    }
+  }
+
+  /// Iterates through queued contributions in SQLite and attempts to sync them.
+  Future<int> syncPendingContributions({http.Client? client}) async {
+    final pending = await _localDb.getPendingContributions();
+    int syncedCount = 0;
+    for (final item in pending) {
+      final id = item['id'] as int;
+      final barcode = item['barcode'] as String;
+      final data = jsonDecode(item['data_json'] as String) as Map<String, dynamic>;
+      final success = await uploadContribution(
+        barcode: barcode,
+        data: data,
+        client: client,
+      );
+      if (success) {
+        await _localDb.removePendingContribution(id);
+        syncedCount++;
+      }
+    }
+    return syncedCount;
+  }
 }
 
 // ==========================================
@@ -315,3 +379,34 @@ class ProductListsNotifier extends AsyncNotifier<List<ProductList>> {
 final productListsProvider =
     AsyncNotifierProvider<ProductListsNotifier, List<ProductList>>(
         ProductListsNotifier.new);
+
+/// AsyncNotifier managing the offline sync queue for community contributions.
+class PendingContributionsNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
+  @override
+  Future<List<Map<String, dynamic>>> build() async {
+    return await LocalProductDatabase.instance.getPendingContributions();
+  }
+
+  Future<void> queueContribution({
+    required String barcode,
+    required Map<String, dynamic> data,
+  }) async {
+    await LocalProductDatabase.instance.queuePendingContribution(barcode, data);
+    state = AsyncData(await LocalProductDatabase.instance.getPendingContributions());
+  }
+
+  Future<int> syncQueue({http.Client? client}) async {
+    final repo = ref.read(offRepositoryProvider);
+    final count = await repo.syncPendingContributions(client: client);
+    state = AsyncData(await LocalProductDatabase.instance.getPendingContributions());
+    return count;
+  }
+
+  Future<void> refresh() async {
+    state = AsyncData(await LocalProductDatabase.instance.getPendingContributions());
+  }
+}
+
+final pendingContributionsProvider =
+    AsyncNotifierProvider<PendingContributionsNotifier, List<Map<String, dynamic>>>(
+        PendingContributionsNotifier.new);

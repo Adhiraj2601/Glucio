@@ -406,6 +406,74 @@ def fetch_country_india(total_target: int = 200) -> list:
     return all_raw[:total_target]
 
 
+def enrich_seed_catalog(seed_path="app/assets/seed_products.json"):
+    """Enriches all seed products in seed_products.json with full Open Food Facts fields."""
+    if not os.path.exists(seed_path):
+        print(f"[Error] Seed path not found: {seed_path}")
+        return
+
+    with open(seed_path, "r", encoding="utf-8") as f:
+        products = json.load(f)
+
+    print(f"\n[Re-Enrich Seed] Processing {len(products)} products in {seed_path}...")
+    enriched_count = 0
+
+    for idx, p in enumerate(products, start=1):
+        barcode = p.get("barcode", "").strip()
+        if not validate_ean_checksum(barcode):
+            continue
+
+        existing_details = p.get("details")
+        if existing_details and existing_details.get("full_nutriments"):
+            continue
+
+        category = p.get("category", "")
+        pack_size = p.get("pack_size_g", 100.0)
+        sugar = p.get("sugar_per_100g")
+        basis = p.get("sugar_basis", "per_100g")
+
+        # Create structured details adhering strictly to OFF schema
+        details = {
+            "barcode": barcode,
+            "quantity": f"{pack_size:g}{'ml' if basis == 'per_100ml' else 'g'}",
+            "image_front_url": None,
+            "image_front_small_url": None,
+            "image_ingredients_url": None,
+            "image_nutrition_url": None,
+            "ingredients_text": None,
+            "ingredients_analysis_tags": [],
+            "allergens_tags": [],
+            "traces_tags": [],
+            "additives_tags": [],
+            "labels_tags": [],
+            "origins": None,
+            "packaging": None,
+            "packaging_tags": [],
+            "categories_tags": [category],
+            "nutriscore_grade": None,
+            "nutriscore_data": None,
+            "nova_group": 4 if category in ["biscuits", "instant noodles", "chips", "namkeen", "confectionery"] else None,
+            "ecoscore_grade": None,
+            "ecoscore_data": None,
+            "nutrient_levels": {
+                "sugars": "high" if (sugar and sugar > 15.0) else ("moderate" if (sugar and sugar > 5.0) else "low"),
+            } if sugar is not None else None,
+            "full_nutriments": {
+                "energy_kcal_100g": None,
+                "sugars_100g": sugar,
+                "sugars_serving": round((sugar * p.get("serving_size_g", 30.0) / 100.0), 2) if sugar is not None else None,
+            },
+        }
+
+        p["details"] = details
+        enriched_count += 1
+
+    with open(seed_path, "w", encoding="utf-8") as f:
+        json.dump(products, f, indent=2, ensure_ascii=False)
+
+    print(f"[Success] Re-enriched {enriched_count} seed products with new OFF schema fields!")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Import Indian products from Open Food Facts.")
     parser.add_argument("--count", type=int, default=200, help="Target total products to fetch from country search")
@@ -414,7 +482,12 @@ def main():
     parser.add_argument("--file", type=str, default="", help="Read from local JSON or JSONL file")
     parser.add_argument("--output", type=str, default="data/imported_indian_products.json", help="Output JSON path")
     parser.add_argument("--sync", action="store_true", help="Sync directly into app/assets/seed_products.json")
+    parser.add_argument("--enrich-seed", action="store_true", help="Re-enrich existing seed products with OFF schema fields")
     args = parser.parse_args()
+
+    if args.enrich_seed:
+        enrich_seed_catalog()
+        return
 
     raw_items = []
     if args.file and os.path.exists(args.file):
@@ -493,6 +566,8 @@ def main():
                     existing_item = existing_barcodes[b]
                     if not any(pt["label"].lower().startswith("whole pack") for pt in existing_item.get("portions", [])):
                         existing_item["portions"] = p["portions"]
+                    if p.get("details"):
+                        existing_item["details"] = p["details"]
 
             merged = list(existing_barcodes.values())
             with open(seed_path, "w", encoding="utf-8") as f:
