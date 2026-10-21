@@ -235,6 +235,168 @@ class LocalProductDatabase {
     );
   }
 
+  /// Retrieves all food log entries within a specific date range [start] to [end] (inclusive).
+  Future<List<FoodLogEntry>> getFoodLogsForDateRange(DateTime start, DateTime end) async {
+    final db = await database;
+    final startIso = DateTime(start.year, start.month, start.day).toIso8601String();
+    final endIso = DateTime(end.year, end.month, end.day, 23, 59, 59, 999).toIso8601String();
+
+    final result = await db.query(
+      'food_logs',
+      where: 'logged_at >= ? AND logged_at <= ?',
+      whereArgs: [startIso, endIso],
+      orderBy: 'logged_at DESC',
+    );
+
+    return result.map((map) => FoodLogEntry.fromMap(map)).toList();
+  }
+
+  /// Helper to retrieve food logs for the past [days] days (including today).
+  Future<List<FoodLogEntry>> getFoodLogsForLastDays(int days) async {
+    final now = DateTime.now();
+    final start = now.subtract(Duration(days: days - 1));
+    return getFoodLogsForDateRange(start, now);
+  }
+
+  /// Retrieves all food log entries stored in local SQLite, ordered by newest first.
+  Future<List<FoodLogEntry>> getAllFoodLogs() async {
+    final db = await database;
+    final result = await db.query(
+      'food_logs',
+      orderBy: 'logged_at DESC',
+    );
+    return result.map((map) => FoodLogEntry.fromMap(map)).toList();
+  }
+
+  /// Clears all food log entries across all dates.
+  Future<int> clearAllFoodLogs() async {
+    final db = await database;
+    return await db.delete('food_logs');
+  }
+
+  /// Inserts realistic sample food logs for the past 6 days for testing/demo purposes.
+  Future<void> seedSampleWeekLogs() async {
+    final now = DateTime.now();
+
+    final samples = [
+      // 1 day ago (Yesterday) - Moderate (within limit)
+      FoodLogEntry(
+        barcode: '8901063012134',
+        name: 'Parle-G Original Gluco Biscuits',
+        brand: 'Parle',
+        portionLabel: '1 biscuit (x3)',
+        portionAmount: 15.0,
+        portionBasis: 'g',
+        sugarGrams: 3.8,
+        loggedAt: now.subtract(const Duration(days: 1, hours: 6)),
+      ),
+      FoodLogEntry(
+        barcode: '8901030383458',
+        name: 'Kissan Fresh Tomato Ketchup',
+        brand: 'Kissan',
+        portionLabel: '1 tbsp',
+        portionAmount: 15.0,
+        portionBasis: 'g',
+        sugarGrams: 3.8,
+        loggedAt: now.subtract(const Duration(days: 1, hours: 2)),
+      ),
+
+      // 2 days ago - High Sugar Day (Exceeded 25g limit)
+      FoodLogEntry(
+        barcode: '8901764012211',
+        name: 'Thums Up Carbonated Drink',
+        brand: 'Coca-Cola',
+        portionLabel: 'Whole pack (300ml)',
+        portionAmount: 300.0,
+        portionBasis: 'ml',
+        sugarGrams: 31.8,
+        loggedAt: now.subtract(const Duration(days: 2, hours: 4)),
+      ),
+
+      // 3 days ago - Low Sugar / Healthy
+      FoodLogEntry(
+        barcode: '8901725181222',
+        name: "Haldiram's Alu Bhujia",
+        brand: "Haldiram's",
+        portionLabel: '1 handful (25g)',
+        portionAmount: 25.0,
+        portionBasis: 'g',
+        sugarGrams: 0.5,
+        loggedAt: now.subtract(const Duration(days: 3, hours: 5)),
+      ),
+      FoodLogEntry(
+        barcode: '0004614504046',
+        name: 'AQUAFINA',
+        brand: 'Generic',
+        portionLabel: '1 serving (30g)',
+        portionAmount: 30.0,
+        portionBasis: 'g',
+        sugarGrams: null, // Unknown sugar test
+        loggedAt: now.subtract(const Duration(days: 3, hours: 3)),
+      ),
+
+      // 4 days ago - Biscuits & Tea
+      FoodLogEntry(
+        barcode: '8901063142213',
+        name: 'Britannia Good Day Butter Biscuits',
+        brand: 'Britannia',
+        portionLabel: '1 biscuit (x2)',
+        portionAmount: 20.0,
+        portionBasis: 'g',
+        sugarGrams: 4.4,
+        loggedAt: now.subtract(const Duration(days: 4, hours: 7)),
+      ),
+      FoodLogEntry(
+        barcode: '8901058852233',
+        name: 'Maggi 2-Minute Masala Noodles',
+        brand: 'Nestle',
+        portionLabel: '1 bowl (70g)',
+        portionAmount: 70.0,
+        portionBasis: 'g',
+        sugarGrams: 2.2,
+        loggedAt: now.subtract(const Duration(days: 4, hours: 2)),
+      ),
+
+      // 5 days ago - High sugar treat
+      FoodLogEntry(
+        barcode: '8901719102011',
+        name: 'Frooti Mango Drink',
+        brand: 'Parle Agro',
+        portionLabel: 'Whole pack (150ml)',
+        portionAmount: 150.0,
+        portionBasis: 'ml',
+        sugarGrams: 19.8,
+        loggedAt: now.subtract(const Duration(days: 5, hours: 5)),
+      ),
+      FoodLogEntry(
+        barcode: '7622201750244',
+        name: 'Oreo Original Vanilla Creme Biscuits',
+        brand: 'Cadbury',
+        portionLabel: '1 biscuit (x2)',
+        portionAmount: 22.8,
+        portionBasis: 'g',
+        sugarGrams: 8.7,
+        loggedAt: now.subtract(const Duration(days: 5, hours: 1)),
+      ),
+
+      // 6 days ago - Moderate
+      FoodLogEntry(
+        barcode: '8901063012134',
+        name: 'Parle-G Original Gluco Biscuits',
+        brand: 'Parle',
+        portionLabel: '1 biscuit (x4)',
+        portionAmount: 20.0,
+        portionBasis: 'g',
+        sugarGrams: 5.1,
+        loggedAt: now.subtract(const Duration(days: 6, hours: 4)),
+      ),
+    ];
+
+    for (final entry in samples) {
+      await insertFoodLog(entry);
+    }
+  }
+
   // ==========================================
   // USER SETTINGS (DAILY LIMIT)
   // ==========================================

@@ -292,4 +292,104 @@ Pick up your connected Android phone (`Samsung Galaxy M31`), where Glucio is run
   - `slice2_13_aquafina_missing_sugar.png`: Missing sugar card with Log Anyway button.
   - `slice2_14_home_tracker_missing_sugar_badge.png`: Home tracker displaying missing sugar warning badge.
 
+---
+
+## Checkpoint C (After Slice 3: Weekly Trends, History & Analytics)
+**Status:** Successfully Verified on Physical Phone 📱
+
+### What Was Built & Verified in Slice 3
+1. **Offline-First SQLite Analytical Queries (`LocalProductDatabase`)**:
+   - `getFoodLogsForDateRange(DateTime start, DateTime end)`: Chronological window query across any date boundary.
+   - `getFoodLogsForLastDays(int days)`: Efficient indexed query for the sliding 7-day analytics window.
+   - `getAllFoodLogs()`: Ordered history query across all user logging history.
+   - `seedSampleWeekLogs()`: Debug utility populating 7 realistic Indian items across the past 7 days (Parle-G, Thums Up, Kissan Ketchup, Frooti, Haldiram's Bhujia, Aquafina unknown sugar).
+   - `clearAllFoodLogs()`: Debug reset utility.
+
+2. **Domain Models & Analytical Aggregators**:
+   - `DailySugarSummary`: Date, total sugar grams, formatted plain-language teaspoons, item count, unknown sugar count, within-limit compliance flag.
+   - `TopSugarContributor`: Ranked item contributor aggregation across 7 days with item name, brand, logging count, and total sugar contributed.
+   - `WeeklyAnalytics`: 7-day average grams/day, 7-day average tsp/day, days within limit compliance count ($N / 7\text{ days}$), percent success, unverified items count, and ranked top 3 sugar sources.
+
+3. **Riverpod State Architecture (`WeeklyTrackerProviders`)**:
+   - `weeklyFoodLogsProvider` (`WeeklyFoodLogsNotifier`): Reactive notifier for sliding 7-day window.
+   - `selectedDateProvider` (`SelectedDateNotifier`): Selected day notifier for the interactive bar chart inspector.
+   - `weeklyAnalyticsProvider`: Derived provider computing 7-day summaries and top sugar contributors.
+   - `selectedDaySummaryProvider` & `selectedDayLogsProvider`: Derived day-level inspector state.
+   - `allFoodLogsHistoryProvider` (`AllFoodLogsNotifier`): Full history timeline notifier with instant item deletion.
+
+4. **Neo-Brutalist UI Components**:
+   - **3-Tab Bottom Navigation**: Bold Neo-Brutalist navigation bar with cream background, 2px ink borders, and lime-green active pill (`Today`, `Trends`, `History`).
+   - **Interactive 7-Day Bar Chart (`WeeklySugarBarChart`)**:
+     - Chunky 2px ink-bordered bars with drop shadows.
+     - Dynamic threshold colors: Green ($\le 50\%$), Amber ($51-100\%$), Red ($> 100\%$).
+     - Missing sugar indicator badge (`?`) on bars containing items with unknown nutrition.
+     - Horizontal daily target guideline line ($35\text{g LIMIT}$) across the chart plot.
+     - Interactive day selection pill with lime highlight and automatic day inspector card below chart.
+   - **Weekly Insights & Stats Card (`WeeklyInsightsCard`)**:
+     - High-contrast stat cards: `7-DAY AVERAGE` (g/day, tsp/day, and below-limit status badge) & `DAYS WITHIN LIMIT` (e.g. $7/7\text{ days}$, `100% success`).
+     - Alert banner for unverified sugar items logged during the week.
+     - Ranked Top Sugar Sources with numbered Neo-Brutalist badges (#1 Thums Up, #2 Frooti, #3 Parle-G).
+   - **Chronological History Timeline (`FoodHistoryScreen`)**:
+     - Date-grouped cards (`Today`, `Yesterday`, and earlier calendar dates).
+     - Group total sugar badges and missing sugar alerts.
+     - Individual items with portion info, timestamp, and instant deletion trash icon.
+
+---
+
+### Step-by-Step Device Testing Checklist for Checkpoint C
+
+Pick up your connected Android phone (`Samsung Galaxy M31`), where Glucio is running:
+
+#### Test 1: Navigation & Weekly Trends Screen
+1. On `HomeScreen`, tap the **"Trends"** tab on the bottom navigation bar (or tap **"View 7-Day Sugar Trends ➔"** on the tracker card).
+2. The app navigates to the **Weekly Trends** screen.
+3. Observe the Neo-Brutalist 7-day bar chart showing daily intake bars, the horizontal target guideline (`35g LIMIT`), and the active day pill.
+4. **Verified Result**: Screenshot `slice3_02_weekly_trends_seeded.png` shows 7 days of logs (Thu 15, Fri 16, Sat 17, Sun 18, Mon 19, Tue 20, Today 21) with amber threshold bars for higher-intake days and orange `?` badges for unverified items.
+
+#### Test 2: Interactive Day Selection (Friday Oct 16)
+1. On the bar chart, tap the **Friday (16)** bar ($29\text{g}$ sugar).
+2. **Verified Result**: Screenshot `slice3_03_trends_day_selected.png` shows:
+   - Friday's pill highlights with a lime border and background.
+   - The **Day Inspector Card** updates to: `Friday, Oct 16 • 28.5g sugar` (`2 items logged • ≈ 7.1 teaspoons`).
+   - Item list displays:
+     - `Oreo Original Vanilla Creme...` (1 biscuit x2 • 15:09 • 8.7g sugar).
+     - `Frooti Mango Drink` (Whole pack 150ml • 11:09 • 19.8g sugar).
+   - Top Sugar Sources ranking displays: #1 Thums Up ($31.8\text{g}$), #2 Frooti ($19.8\text{g}$), #3 Parle-G ($14.0\text{g}$).
+
+#### Test 3: Food History Timeline & Live Deletion
+1. Tap the **"History"** tab on the bottom navigation bar.
+2. The screen opens the grouped chronological timeline.
+3. Observe groups:
+   - `Today`: $5.1\text{g}$ total (Aquafina unknown sugar, Parle-G 5.1g).
+   - `Yesterday`: $7.6\text{g}$ total (Kissan Fresh Tomato Ketchup 3.8g, Parle-G 3.8g).
+   - `Oct 19, 2026`: $31.8\text{g}$ total (Thums Up).
+4. Tap the trash icon next to **Kissan Fresh Tomato Ketchup** in `Yesterday`.
+5. **Verified Result**: Screenshots `slice3_04_history_timeline.png` and `slice3_05_history_item_deleted.png` demonstrate:
+   - Kissan Ketchup is immediately deleted from SQLite.
+   - Yesterday's group total instantly decrements from $7.6\text{g}$ to $3.8\text{g}$.
+   - The deletion cascades reactively across the entire app state.
+
+---
+
+### Automated Verification Summary
+- `flutter analyze`: **0 issues found** (clean in 26.4s)
+- `flutter test`: **57/57 tests passed (100%)**
+  - `weekly_analytics_test.dart`: 7-day average grams & teaspoons, compliance counting, top contributor aggregation.
+  - `weekly_bar_chart_test.dart`: Bar chart rendering, guideline threshold, day columns.
+  - `food_history_test.dart`: History screen empty state, grouped chronological list rendering, deletion flow.
+  - `daily_tracker_providers_test.dart`: Limit persistence, live logging, null-sugar summing.
+  - `food_log_entry_test.dart`: Strict nullable serialization, portion math.
+  - `product_repository_test.dart`: OFF v3 API parsing, status mapping, basis derivation.
+  - `checksum_test.dart`: EAN check digits.
+  - `portion_builder_test.dart`: Household portions.
+  - `sugar_calculator_test.dart`: Teaspoon conversions.
+- Device: Samsung Galaxy M31 (`RZ8N702ND4E`) running debug APK (`com.glucio.app`).
+- Live physical device screenshots captured in `docs/screenshots/`:
+  - `slice3_01_home_with_nav.png`: Home screen with Neo-Brutalist bottom navigation and Trends button.
+  - `slice3_02_weekly_trends_seeded.png`: 7-day interactive bar chart and weekly insights stats.
+  - `slice3_03_trends_day_selected.png`: Friday selection, day inspector items, and ranked sugar sources.
+  - `slice3_04_history_timeline.png`: Grouped food history timeline.
+  - `slice3_05_history_item_deleted.png`: Live item deletion and instant total recalculation.
+
+
 

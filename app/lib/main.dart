@@ -3,6 +3,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/glucio_theme.dart';
 import 'data/repositories/product_repository.dart';
+import 'features/analytics/presentation/weekly_trends_screen.dart';
+import 'features/history/presentation/food_history_screen.dart';
 import 'features/log/presentation/widgets/daily_tracker_card.dart';
 import 'features/product/presentation/product_not_found_screen.dart';
 import 'features/product/presentation/product_result_screen.dart';
@@ -49,12 +51,20 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  int _selectedTabIndex = 0;
+
   @override
   void initState() {
     super.initState();
     // Pre-warm the seed catalog in background
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(productRepositoryProvider).loadSeedProducts();
+    });
+  }
+
+  void _switchTab(int index) {
+    setState(() {
+      _selectedTabIndex = index;
     });
   }
 
@@ -235,9 +245,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: const Icon(Icons.grain, color: GlucioTheme.inkBlack, size: 20),
             ),
             const SizedBox(width: 8),
-            const Text(
-              'Glucio',
-              style: TextStyle(
+            Text(
+              _selectedTabIndex == 1
+                  ? 'Glucio • Trends'
+                  : (_selectedTabIndex == 2 ? 'Glucio • History' : 'Glucio'),
+              style: const TextStyle(
                 fontFamily: GlucioTheme.fontDisplay,
                 color: GlucioTheme.inkBlack,
                 fontSize: 24,
@@ -248,14 +260,97 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         elevation: 0,
         backgroundColor: GlucioTheme.bgCream,
       ),
-      body: SafeArea(
+      body: IndexedStack(
+        index: _selectedTabIndex,
+        children: [
+          _buildTodayView(),
+          const WeeklyTrendsScreen(),
+          const FoodHistoryScreen(),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: GlucioTheme.cardCream,
+          border: Border(
+            top: BorderSide(color: GlucioTheme.inkBlack, width: 2),
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(0, Icons.today_rounded, 'Today'),
+                _buildNavItem(1, Icons.bar_chart_rounded, 'Trends'),
+                _buildNavItem(2, Icons.history_rounded, 'History'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    final isSelected = _selectedTabIndex == index;
+    return GestureDetector(
+      onTap: () => _switchTab(index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? GlucioTheme.accentLime : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          border: isSelected
+              ? Border.all(color: GlucioTheme.inkBlack, width: 2)
+              : Border.all(color: Colors.transparent, width: 2),
+          boxShadow: isSelected
+              ? const [
+                  BoxShadow(
+                    color: GlucioTheme.inkBlack,
+                    offset: Offset(2, 2),
+                    blurRadius: 0,
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isSelected ? GlucioTheme.inkBlack : Colors.black54,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: GlucioTheme.fontBody,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? GlucioTheme.inkBlack : Colors.black54,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTodayView() {
+    return SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Slice 2: Today's Sugar Tracker Card
-              const DailyTrackerCard(),
+              DailyTrackerCard(
+                onViewTrends: () => _switchTab(1),
+              ),
               const SizedBox(height: 18),
 
               // Hero Camera Scan Card
@@ -463,8 +558,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildSeedProductTile({

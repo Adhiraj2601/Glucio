@@ -25,6 +25,12 @@ class FoodLogEntry {
   /// Approximate teaspoons calculation (1 tsp = 4.0g) if sugar is known.
   double? get teaspoons => sugarGrams != null ? sugarGrams! / 4.0 : null;
 
+  /// Plain text teaspoons description for UI display.
+  String get sugarTeaspoonsText {
+    if (teaspoons == null) return 'Sugar unknown';
+    return 'about ${teaspoons!.toStringAsFixed(1)} tsp';
+  }
+
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,

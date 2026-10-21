@@ -8,7 +8,12 @@ import '../providers/daily_tracker_providers.dart';
 /// Interactive Neo-brutalist Daily Sugar Tracker card.
 /// Displays consumed sugar today, daily allowance progress bar, and list of logged foods.
 class DailyTrackerCard extends ConsumerStatefulWidget {
-  const DailyTrackerCard({super.key});
+  final VoidCallback? onViewTrends;
+
+  const DailyTrackerCard({
+    super.key,
+    this.onViewTrends,
+  });
 
   @override
   ConsumerState<DailyTrackerCard> createState() => _DailyTrackerCardState();
@@ -436,6 +441,46 @@ class _DailyTrackerCardState extends ConsumerState<DailyTrackerCard> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+
+          if (widget.onViewTrends != null) ...[
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: widget.onViewTrends,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: GlucioTheme.cardCream,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: GlucioTheme.inkBlack, width: 1.5),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: GlucioTheme.inkBlack,
+                      offset: Offset(2, 2),
+                      blurRadius: 0,
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.bar_chart_rounded, size: 16, color: GlucioTheme.inkBlack),
+                    SizedBox(width: 6),
+                    Text(
+                      'View 7-Day Sugar Trends',
+                      style: TextStyle(
+                        fontFamily: GlucioTheme.fontBody,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: GlucioTheme.inkBlack,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_rounded, size: 14, color: GlucioTheme.inkBlack),
+                  ],
+                ),
               ),
             ),
           ],
