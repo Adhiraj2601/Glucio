@@ -5,15 +5,28 @@ import '../../../../core/utils/sugar_calculator.dart';
 import '../../../data/models/food_log_entry.dart';
 import '../../../data/models/portion.dart';
 import '../../../data/models/product.dart';
+import '../../../data/models/product_alert_verdict.dart';
+import '../../../data/models/user_preferences.dart';
 import '../../../data/repositories/product_repository.dart';
 import '../../log/presentation/providers/daily_tracker_providers.dart';
 import 'add_product_screen.dart';
+import 'widgets/additives_card.dart';
+import 'widgets/allergens_card.dart';
 import 'widgets/debug_trace_panel.dart';
+import 'widgets/ingredients_analysis_card.dart';
+import 'widgets/labels_origins_card.dart';
+import 'widgets/neo_accordion_card.dart';
+import 'widgets/nutrition_facts_card.dart';
+import 'widgets/packaging_card.dart';
+import 'widgets/personal_preferences_alert_banner.dart';
+import 'widgets/product_image_gallery_modal.dart';
+import 'widgets/product_quality_row.dart';
 import 'widgets/smarter_swaps_card.dart';
 import 'widgets/sugar_cube_widget.dart';
 import 'widgets/sugar_progress_bar.dart';
 
-/// Screen displaying the complete sugar breakdown and cube visualizer for a scanned product.
+/// Screen displaying the complete sugar breakdown and cube visualizer for a scanned product,
+/// extended with Open Food Facts nutritional quality assessment, label analysis, and dietary preferences.
 /// Built with Neo-brutalist styling: warm cream surfaces, 2px ink borders, and 4px hard shadows.
 class ProductResultScreen extends ConsumerStatefulWidget {
   final Product product;
@@ -30,15 +43,21 @@ class ProductResultScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
+  final ScrollController _scrollController = ScrollController();
   int _selectedPortionIndex = 0;
   int _multiplier = 1;
 
   @override
   void initState() {
     super.initState();
-    // Default to the first portion (smallest unit or serving, whole pack is last)
     _selectedPortionIndex = 0;
     _multiplier = 1;
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Portion _getCurrentPortion(Product p) {
@@ -48,7 +67,6 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
       }
       return p.portions[_selectedPortionIndex];
     }
-    // Fallback if portions list is empty
     return Portion(
       label: '1 serving (${p.servingSizeG.toStringAsFixed(0)}g)',
       amount: p.servingSizeG > 0 ? p.servingSizeG : 100.0,
@@ -82,6 +100,19 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
     final p = widget.product;
     final hasSugar = p.hasSugarData;
 
+    // Progressive OFF Enrichment & Dietary Alert
+    final detailsAsync = ref.watch(productDetailsProvider(p.barcode));
+    final details = detailsAsync.value ?? p.details;
+
+    final alertsAsync = ref.watch(productAlertsProvider(p.barcode));
+    final alertVerdict = alertsAsync.value;
+
+    final prefsAsync = ref.watch(userPreferencesProvider);
+    final userPrefs = prefsAsync.value;
+
+    final compareList = ref.watch(productCompareProvider);
+    final isInCompare = compareList.any((cp) => cp.barcode == p.barcode);
+
     Portion? portion;
     double? currentSugarG;
     double? currentTeaspoons;
@@ -98,6 +129,10 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
       severityColor = SugarCalculator.getSeverityColor(currentPercent);
       heroSentence = _buildHeroSentence(p, portion, currentSugarG, currentTeaspoons);
     }
+
+    final imageUrls = details?.imageUrls;
+    final thumbUrl = imageUrls?.frontSmall ?? imageUrls?.front;
+    final hasImages = imageUrls != null && imageUrls.hasAnyImage;
 
     return Scaffold(
       backgroundColor: GlucioTheme.bgCream,
@@ -117,6 +152,43 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          IconButton(
+            tooltip: isInCompare ? 'In Comparison (${compareList.length}/4)' : 'Add to Compare',
+            icon: Icon(
+              isInCompare ? Icons.compare_arrows : Icons.compare_arrows_outlined,
+              color: isInCompare ? GlucioTheme.primaryGreen : GlucioTheme.inkBlack,
+              size: 26,
+            ),
+            onPressed: () {
+              final notifier = ref.read(productCompareProvider.notifier);
+              if (isInCompare) {
+                notifier.removeProduct(p.barcode);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Removed from product comparison'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              } else {
+                final added = notifier.addProduct(p);
+                if (added) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${p.name} added to comparison (${compareList.length + 1}/4)'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Comparison list full (max 4 products)'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              }
+            },
+          ),
           IconButton(
             tooltip: 'Add or Correct Product Data',
             icon: const Icon(Icons.edit_note_rounded, color: GlucioTheme.inkBlack, size: 28),
@@ -138,6 +210,7 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
         ],
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -155,6 +228,61 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (hasImages && thumbUrl != null) ...[
+                        GestureDetector(
+                          onTap: () {
+                            ProductImageGalleryModal.show(
+                              context,
+                              imageUrls,
+                              p.name,
+                            );
+                          },
+                          child: Container(
+                            width: 58,
+                            height: 58,
+                            margin: const EdgeInsets.only(right: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: GlucioTheme.inkBlack, width: 2),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: GlucioTheme.inkBlack,
+                                  offset: Offset(2, 2),
+                                  blurRadius: 0,
+                                ),
+                              ],
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Image.network(
+                                  thumbUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => const Center(
+                                    child: Icon(Icons.fastfood_rounded,
+                                        color: GlucioTheme.inkBlack, size: 24),
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 2,
+                                  bottom: 2,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: BoxDecoration(
+                                      color: GlucioTheme.inkBlack,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Icon(Icons.zoom_in_rounded,
+                                        size: 10, color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,6 +304,18 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                            if (details?.quantity != null && details!.quantity!.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                details.quantity!,
+                                style: const TextStyle(
+                                  fontFamily: GlucioTheme.fontBody,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: GlucioTheme.inkBlack,
                                 ),
                               ),
                             ],
@@ -213,7 +353,7 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Missing Sugar State
+            // Missing Sugar State vs Sugar Hero Breakdown
             if (!hasSugar) ...[
               _buildMissingSugarCard(context, p),
               const SizedBox(height: 16),
@@ -403,6 +543,33 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
               const SizedBox(height: 16),
             ],
 
+            // Personal Preferences Alert Banner (under the sugar hero)
+            if (alertVerdict != null &&
+                (alertVerdict.status != ProductAlertStatus.matches ||
+                    (userPrefs?.criteria.values.any((c) =>
+                            c.id != 'nutr_low_sugar' &&
+                            c.importance != PreferenceImportance.notImportant) ??
+                        false))) ...[
+              PersonalPreferencesAlertBanner(
+                verdict: alertVerdict,
+              ),
+            ],
+
+            // Nutritional Quality Assessment Row (Nutri-Score, NOVA, Eco-Score, Nutrient Levels)
+            ProductQualityRow(
+              details: details,
+              sugarGrams: currentSugarG,
+              showEcoScore: details?.ecoScoreGrade != null,
+              onSugarTapped: () {
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+
             // Smarter Swaps (Lower-sugar alternatives in same category)
             SmarterSwapsCard(
               product: p,
@@ -416,9 +583,224 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Collapsed "Label details" accordion for raw numbers
-            _buildLabelDetailsAccordion(p),
-            const SizedBox(height: 16),
+            // Collapsible Neo Accordion Cards
+            // 1. Ingredients & Dietary Analysis Card
+            NeoAccordionCard(
+              title: 'Ingredients & Diet',
+              icon: Icons.eco_outlined,
+              child: IngredientsAnalysisCard(
+                ingredientsText: details?.ingredientsText,
+                allergenTags: details?.allergenTags ?? const [],
+                analysis: details?.ingredientsAnalysis,
+              ),
+            ),
+
+            // 2. Allergens & Traces Card
+            NeoAccordionCard(
+              title: 'Allergens & Traces',
+              icon: Icons.warning_amber_rounded,
+              trailingBadge: (details?.allergenTags.isNotEmpty ?? false)
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: GlucioTheme.levelHigh,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${details!.allergenTags.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  : null,
+              child: AllergensCard(
+                allergenTags: details?.allergenTags ?? const [],
+                traceTags: details?.traceTags ?? const [],
+              ),
+            ),
+
+            // 3. Nutrition Facts Card (100g vs Serving Toggle)
+            NeoAccordionCard(
+              title: 'Full Nutrition Facts',
+              icon: Icons.table_chart_outlined,
+              child: NutritionFactsCard(
+                nutriments: details?.fullNutriments,
+                levels: details?.nutrientLevels,
+                servingDescription: portion?.label,
+              ),
+            ),
+
+            // 4. Additives & Processing Card
+            NeoAccordionCard(
+              title: 'Additives & Processing',
+              icon: Icons.science_outlined,
+              trailingBadge: (details?.additiveTags.isNotEmpty ?? false)
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: GlucioTheme.levelMedium,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${details!.additiveTags.length}',
+                        style: const TextStyle(
+                          color: GlucioTheme.inkBlack,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  : null,
+              child: AdditivesCard(
+                additiveTags: details?.additiveTags ?? const [],
+              ),
+            ),
+
+            // 5. Certifications, Labels & Origins Card
+            NeoAccordionCard(
+              title: 'Labels & Origins',
+              icon: Icons.verified_outlined,
+              child: LabelsOriginsCard(
+                labelTags: details?.labelTags ?? const [],
+                origins: details?.origins,
+              ),
+            ),
+
+            // 6. Packaging & Recycling Card
+            NeoAccordionCard(
+              title: 'Packaging & Recycling',
+              icon: Icons.inventory_2_outlined,
+              child: PackagingCard(
+                packaging: details?.packaging,
+                packagingTags: details?.packagingTags ?? const [],
+              ),
+            ),
+
+            // 7. Technical Label Details
+            NeoAccordionCard(
+              title: 'Technical Label Details',
+              icon: Icons.info_outline,
+              child: Column(
+                children: [
+                  _buildNutritionRow(
+                    'Sugar Basis',
+                    p.sugarBasis == 'per_100ml' ? 'per 100 ml' : 'per 100 g',
+                  ),
+                  _buildNutritionRow(
+                    'Total Sugar',
+                    p.sugarPer100 != null
+                        ? '${p.sugarPer100!.toStringAsFixed(1)} g'
+                        : 'Not declared on pack',
+                  ),
+                  _buildNutritionRow(
+                    'Added Sugar',
+                    p.addedSugarPer100g != null
+                        ? '${p.addedSugarPer100g!.toStringAsFixed(1)} g'
+                        : 'Not declared on pack',
+                  ),
+                  _buildNutritionRow('Pack Size', '${p.packSizeG.toStringAsFixed(0)} g'),
+                  _buildNutritionRow('Serving Size', '${p.servingSizeG.toStringAsFixed(0)} g'),
+                  _buildNutritionRow('Verified Label Checked', p.verified ? 'Yes' : 'No'),
+                  _buildNutritionRow('Data Source', p.source),
+                ],
+              ),
+            ),
+
+            // Open Food Facts Community Contribution & Attribution Card
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: GlucioTheme.cardDecoration(
+                surface: GlucioTheme.cardCream,
+                radius: 16,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.volunteer_activism_outlined,
+                          color: GlucioTheme.inkBlack, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Help Improve Glucio',
+                        style: TextStyle(
+                          fontFamily: GlucioTheme.fontDisplay,
+                          fontSize: 16,
+                          color: GlucioTheme.inkBlack,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Notice an error or missing information? Add or correct product details to enrich Open Food Facts for everyone.',
+                    style: TextStyle(
+                      fontFamily: GlucioTheme.fontBody,
+                      fontSize: 12,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => AddProductScreen(
+                            initialBarcode: p.barcode,
+                            initialName: p.name,
+                            initialBrand: p.brand,
+                            initialCategory: p.category,
+                            initialPackSize: p.packSizeG,
+                            initialServingSize: p.servingSizeG,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: GlucioTheme.accentLime,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: GlucioTheme.inkBlack, width: 1.5),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: GlucioTheme.inkBlack,
+                            offset: Offset(2, 2),
+                            blurRadius: 0,
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Contribute / Edit Product',
+                          style: TextStyle(
+                            fontFamily: GlucioTheme.fontBody,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: GlucioTheme.inkBlack,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Center(
+                    child: Text(
+                      'Data from Open Food Facts, ODbL; images CC-BY-SA',
+                      style: TextStyle(
+                        fontFamily: GlucioTheme.fontBody,
+                        fontSize: 10,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
             // Diagnostic Debug Trace Panel
             DebugTracePanel(trace: widget.trace),
@@ -757,67 +1139,6 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildLabelDetailsAccordion(Product p) {
-    return Container(
-      decoration: GlucioTheme.cardDecoration(
-        surface: GlucioTheme.cardCream,
-        radius: 16,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: ExpansionTile(
-          initiallyExpanded: false,
-          title: const Text(
-            'Label Details',
-            style: TextStyle(
-              fontFamily: GlucioTheme.fontBody,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: GlucioTheme.inkBlack,
-            ),
-          ),
-          subtitle: const Text(
-            'Per 100g/ml, added sugar, pack size & source',
-            style: TextStyle(
-              fontFamily: GlucioTheme.fontBody,
-              fontSize: 11,
-              color: Colors.black54,
-            ),
-          ),
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Column(
-                children: [
-                  _buildNutritionRow(
-                    'Sugar Basis',
-                    p.sugarBasis == 'per_100ml' ? 'per 100 ml' : 'per 100 g',
-                  ),
-                  _buildNutritionRow(
-                    'Total Sugar',
-                    p.sugarPer100 != null
-                        ? '${p.sugarPer100!.toStringAsFixed(1)} g'
-                        : 'Not declared on pack',
-                  ),
-                  _buildNutritionRow(
-                    'Added Sugar',
-                    p.addedSugarPer100g != null
-                        ? '${p.addedSugarPer100g!.toStringAsFixed(1)} g'
-                        : 'Not declared on pack',
-                  ),
-                  _buildNutritionRow('Pack Size', '${p.packSizeG.toStringAsFixed(0)} g'),
-                  _buildNutritionRow('Serving Size', '${p.servingSizeG.toStringAsFixed(0)} g'),
-                  _buildNutritionRow('Verified Label Checked', p.verified ? 'Yes' : 'No'),
-                  _buildNutritionRow('Data Source', p.source),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
