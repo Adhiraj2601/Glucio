@@ -6,6 +6,7 @@ import 'data/repositories/product_repository.dart';
 import 'features/analytics/presentation/weekly_trends_screen.dart';
 import 'features/history/presentation/food_history_screen.dart';
 import 'features/log/presentation/widgets/daily_tracker_card.dart';
+import 'features/preferences/presentation/preferences_screen.dart';
 import 'features/product/presentation/product_not_found_screen.dart';
 import 'features/product/presentation/product_result_screen.dart';
 import 'features/scan/presentation/scanner_screen.dart';
@@ -259,6 +260,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         elevation: 0,
         backgroundColor: GlucioTheme.bgCream,
+        actions: [
+          IconButton(
+            tooltip: 'Personal Preferences',
+            icon: const Icon(Icons.tune_rounded, color: GlucioTheme.inkBlack, size: 24),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const PreferencesScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: IndexedStack(
         index: _selectedTabIndex,

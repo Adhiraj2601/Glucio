@@ -9,6 +9,7 @@ import '../../../data/models/product_alert_verdict.dart';
 import '../../../data/models/user_preferences.dart';
 import '../../../data/repositories/product_repository.dart';
 import '../../log/presentation/providers/daily_tracker_providers.dart';
+import '../../preferences/presentation/preferences_screen.dart';
 import 'add_product_screen.dart';
 import 'widgets/additives_card.dart';
 import 'widgets/allergens_card.dart';
@@ -552,6 +553,13 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
                         false))) ...[
               PersonalPreferencesAlertBanner(
                 verdict: alertVerdict,
+                onSettingsTapped: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const PreferencesScreen(),
+                    ),
+                  );
+                },
               ),
             ],
 
