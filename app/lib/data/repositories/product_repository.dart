@@ -275,6 +275,12 @@ class ProductRepository {
   /// Exposes all currently loaded seed products for testing/inspection.
   List<Product> getAllCachedProducts() => _seedCache.values.toList();
 
+  /// Loads and returns the complete seed catalog.
+  Future<Map<String, Product>> getSeedProducts() async {
+    await loadSeedProducts();
+    return _seedCache;
+  }
+
   /// Saves or updates a user-contributed or corrected product.
   Future<void> saveUserProduct(Product product) async {
     await _localDb.saveProduct(product);

@@ -10,6 +10,7 @@ import 'features/log/presentation/widgets/daily_tracker_card.dart';
 import 'features/preferences/presentation/preferences_screen.dart';
 import 'features/product/presentation/product_not_found_screen.dart';
 import 'features/product/presentation/product_result_screen.dart';
+import 'features/search/presentation/search_screen.dart';
 import 'features/scan/presentation/scanner_screen.dart';
 
 Future<void> main() async {
@@ -262,6 +263,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         elevation: 0,
         backgroundColor: GlucioTheme.bgCream,
         actions: [
+          IconButton(
+            tooltip: 'Search & Discover',
+            icon: const Icon(Icons.search_rounded, color: GlucioTheme.inkBlack, size: 24),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SearchScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             tooltip: 'Compare Foods',
             icon: const Icon(Icons.compare_arrows_rounded, color: GlucioTheme.inkBlack, size: 24),

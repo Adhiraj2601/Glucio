@@ -1,9 +1,13 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import '../../core/utils/product_alerts_engine.dart';
 import '../datasources/local_product_database.dart';
+import '../models/off_product_dto.dart';
 import '../models/product.dart';
 import '../models/product_alert_verdict.dart';
 import '../models/product_details.dart';
+import '../models/product_list.dart';
 import '../models/scan_history_entry.dart';
 import '../models/user_preferences.dart';
 import 'product_repository.dart';
@@ -62,6 +66,81 @@ class OffRepository {
         scannedAt: DateTime.now(),
       ),
     );
+  }
+
+  /// Searches products against local SQLite/seed catalog and Open Food Facts search API.
+  Future<List<Product>> searchProducts(
+    String query, {
+    bool indiaOnly = true,
+    String? category,
+    http.Client? client,
+  }) async {
+    final clean = query.trim().toLowerCase();
+    if (clean.isEmpty) return const [];
+
+    final resultsMap = <String, Product>{};
+
+    // 1. Search local seed products & SQLite cache
+    final localSeed = await _productRepo.getSeedProducts();
+    for (final p in localSeed.values) {
+      final nameMatches = p.name.toLowerCase().contains(clean);
+      final brandMatches = p.brand.toLowerCase().contains(clean);
+      final barcodeMatches = p.barcode.contains(clean);
+
+      if (nameMatches || brandMatches || barcodeMatches) {
+        if (category == null ||
+            category.isEmpty ||
+            p.category.toLowerCase().contains(category.toLowerCase())) {
+          resultsMap[p.barcode] = p;
+        }
+      }
+    }
+
+    // 2. Query Open Food Facts search API if query is 2+ characters
+    if (clean.length >= 2) {
+      final httpClient = client ?? http.Client();
+      try {
+        final uri = Uri.parse(
+          'https://world.openfoodfacts.org/cgi/search.pl?'
+          'search_terms=${Uri.encodeComponent(clean)}&'
+          'search_simple=1&action=process&json=1&page_size=25'
+          '${indiaOnly ? "&countries_tags_en=india" : ""}&'
+          'fields=code,product_name,brands,quantity,serving_size,image_front_small_url,image_front_url,ingredients_text,ingredients_analysis_tags,allergens_tags,traces_tags,additives_tags,labels_tags,origins,origins_tags,packaging,packaging_tags,categories_tags,nutriments,nutrient_levels,nutriscore_grade,nutriscore_data,nova_group,ecoscore_grade,ecoscore_data,nutrition_data_per',
+        );
+
+        final response = await httpClient
+            .get(uri, headers: {'User-Agent': 'Glucio/1.0.0 (com.glucio.app; Android)'})
+            .timeout(const Duration(seconds: 6));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map<String, dynamic> && data['products'] is List) {
+            for (final item in data['products']) {
+              if (item is Map<String, dynamic>) {
+                final dto = OffProductDto.fromJson(item);
+                final prod = dto.toProduct();
+                if (prod.barcode.isNotEmpty && !resultsMap.containsKey(prod.barcode)) {
+                  if (category == null ||
+                      category.isEmpty ||
+                      prod.category.toLowerCase().contains(category.toLowerCase())) {
+                    resultsMap[prod.barcode] = prod;
+                    if (prod.details != null) {
+                      _localDb.saveProductDetails(prod.details!);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (_) {
+        // Fallback gracefully to offline seed/cache matches on network failure
+      } finally {
+        if (client == null) httpClient.close();
+      }
+    }
+
+    return resultsMap.values.toList();
   }
 }
 
@@ -162,3 +241,77 @@ final productAlertsProvider =
   final prefs = prefsAsync.value ?? UserPreferences.defaults();
   return ProductAlertsEngine.evaluate(preferences: prefs, details: details);
 });
+
+/// AsyncNotifier managing scan history list.
+class ScanHistoryNotifier extends AsyncNotifier<List<ScanHistoryEntry>> {
+  @override
+  Future<List<ScanHistoryEntry>> build() async {
+    return await LocalProductDatabase.instance.getScanHistory();
+  }
+
+  Future<void> recordScan(Product product) async {
+    await LocalProductDatabase.instance.insertScanHistory(
+      ScanHistoryEntry(
+        barcode: product.barcode,
+        name: product.name,
+        brand: product.brand,
+        category: product.category,
+        sugarPer100: product.sugarPer100,
+        nutriScoreGrade: product.nutriScoreGrade,
+        novaGroup: product.novaGroup,
+        scannedAt: DateTime.now(),
+      ),
+    );
+    state = AsyncData(await LocalProductDatabase.instance.getScanHistory());
+  }
+
+  Future<void> clearHistory() async {
+    await LocalProductDatabase.instance.clearScanHistory();
+    state = const AsyncData([]);
+  }
+
+  Future<void> refresh() async {
+    state = AsyncData(await LocalProductDatabase.instance.getScanHistory());
+  }
+}
+
+final scanHistoryProvider =
+    AsyncNotifierProvider<ScanHistoryNotifier, List<ScanHistoryEntry>>(
+        ScanHistoryNotifier.new);
+
+/// AsyncNotifier managing user custom product lists.
+class ProductListsNotifier extends AsyncNotifier<List<ProductList>> {
+  @override
+  Future<List<ProductList>> build() async {
+    return await LocalProductDatabase.instance.getProductLists();
+  }
+
+  Future<void> createList(String name) async {
+    final id = 'list_${DateTime.now().millisecondsSinceEpoch}';
+    await LocalProductDatabase.instance.createProductList(id, name);
+    state = AsyncData(await LocalProductDatabase.instance.getProductLists());
+  }
+
+  Future<void> deleteList(String id) async {
+    await LocalProductDatabase.instance.deleteProductList(id);
+    state = AsyncData(await LocalProductDatabase.instance.getProductLists());
+  }
+
+  Future<void> addProduct(String listId, String barcode) async {
+    await LocalProductDatabase.instance.addProductToList(listId, barcode);
+    state = AsyncData(await LocalProductDatabase.instance.getProductLists());
+  }
+
+  Future<void> removeProduct(String listId, String barcode) async {
+    await LocalProductDatabase.instance.removeProductFromList(listId, barcode);
+    state = AsyncData(await LocalProductDatabase.instance.getProductLists());
+  }
+
+  Future<void> refresh() async {
+    state = AsyncData(await LocalProductDatabase.instance.getProductLists());
+  }
+}
+
+final productListsProvider =
+    AsyncNotifierProvider<ProductListsNotifier, List<ProductList>>(
+        ProductListsNotifier.new);
