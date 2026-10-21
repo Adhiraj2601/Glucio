@@ -391,5 +391,82 @@ Pick up your connected Android phone (`Samsung Galaxy M31`), where Glucio is run
   - `slice3_04_history_timeline.png`: Grouped food history timeline.
   - `slice3_05_history_item_deleted.png`: Live item deletion and instant total recalculation.
 
+---
+
+## Checkpoint D (After Slice 4: Smarter Swaps, Product Correction & On-Device OCR Label Recognition)
+**Status:** Verified on Physical Phone 📱
+
+### What Was Built & Verified in Slice 4
+1. **Smarter Swaps Recommendation Engine (`SugarSwap`)**:
+   - Compares scanned product against other products within the same normalized category group (biscuits, beverages, sauces, namkeen, instant noodles).
+   - Filters only candidate products with lower sugar content ($< \text{current product sugar}$).
+   - Ranks candidates by absolute sugar savings ($\text{sugarSavedPer100}$ in grams).
+   - Computes human-friendly savings metrics: exact grams saved, teaspoons saved ($1\text{ tsp} = 4.0\text{ g}$), percentage sugar saved, and formatted string (`"Saves 19.7g (≈ 4.9 tsp) / 100g"`).
+   - Empty state cleanly handles products that are already the lowest sugar in their category.
+2. **Neo-Brutalist Smarter Swaps Card (`SmarterSwapsCard`)**:
+   - Displayed directly below the sugar cubes and limit card on `ProductResultScreen`.
+   - Neo-Brutalist visual styling: 2px solid black border, 4px hard drop shadow, lime yellow `"Lower Sugar"` badge.
+   - Interactive swap item tiles with arrow action buttons that swap the view to the healthier alternative with a single tap.
+3. **On-Device ML Kit OCR Nutrition Label Parser (`NutritionLabelOcrParser`)**:
+   - Uses `google_mlkit_text_recognition` on-device text recognition.
+   - Indian FSSAI label regex patterns: parses standard formats (`"Sugars / 100g"`, `"Added Sugars"`, `"Total Carbohydrate"`, `"Energy (kcal)"`, `"Serving size"`).
+   - Handles decimal commas (`25,5g` -> `25.5`), tabular spacing, and trailing units.
+   - Strict safety rule: missing sugar values remain `null`—never defaulted to `0.0g`.
+4. **Product Contribution & Correction Flow (`AddProductScreen`)**:
+   - Pre-populates unlisted barcodes or existing product attributes.
+   - Camera and Gallery photo pickers trigger ML Kit OCR and automatically populate form fields.
+   - Dynamic household portion generator based on food category and pack size.
+   - Saves directly to local SQLite database with immediate reactive state update.
+5. **Open Food Facts Indian Data Importer Script (`scripts/import_indian_off_products.py`)**:
+   - Standalone CLI utility to filter, validate, and extract Indian packaged foods (`country_tags: en:india` or `890` EAN barcodes).
+   - Validates EAN-8 and EAN-13 check digits mathematically.
+   - Preserves nullable sugar values and synchronizes safely with `seed_products.json`.
+
+---
+
+### Step-by-Step Device Testing Checklist for Checkpoint D
+
+Executed directly on the Samsung Galaxy M31 (`RZ8N702ND4E`):
+
+#### Test 1: Smarter Swaps Display on Parle-G
+1. Open Parle-G Gluco Biscuits ($25.5\text{ g sugar / 100 g}$).
+2. Scroll down below the WHO Daily Limit card.
+3. **Verified Result**: `slice4_01_smarter_swaps.png` shows the **Smarter Swaps** card with 3 lower-sugar recommendations:
+   - `Britannia 100% Whole Wheat Bread` ($5.8\text{ g}$) • **Saves 19.7g (≈ 4.9 tsp) / 100g**
+   - `Britannia Good Day Butter Biscuits` ($22.0\text{ g}$) • **Saves 3.5g (≈ 0.9 tsp) / 100g**
+   - `Britannia Milk Bikis Biscuits` ($24.0\text{ g}$) • **Saves 1.5g sugar / 100g**
+
+#### Test 2: Tap-to-Swap Navigation
+1. Tap the **Britannia Good Day Butter Biscuits** swap item tile.
+2. **Verified Result**: `slice4_02_goodday_swapped.png` shows the view seamlessly switches to Britannia Good Day Butter Biscuits ($22.0\text{ g}$ sugar per 100g, $2.2\text{ g}$ per biscuit, about ½ teaspoon).
+
+#### Test 3: Add / Correct Product Flow & OCR Scanner
+1. Tap the **Edit/Contribute** icon (`Icons.edit_note_rounded`) in the top-right AppBar.
+2. **Verified Result**: `slice4_03_add_product_ocr.png` and `slice4_04_add_product_portions.png` show:
+   - Smart OCR Label Scanner card with **"Take Photo"** and **"Gallery"** buttons.
+   - Product information pre-filled (`8901063012134`, `Britannia Good Day Butter Biscuits`, `Britannia`, `biscuits`).
+   - Household portions and `✓ Save & See Sugar Breakdown` action.
+3. Enter corrected sugar value and tap Save.
+4. **Verified Result**: `slice4_05_saved_product_result.png` shows the product saved to SQLite and loaded into `ProductResultScreen` with updated cube count ($1⅔\text{ tsp}$) and limit progress.
+
+---
+
+### Automated Verification Summary
+- `flutter analyze`: **0 issues found** (clean in 6.8s)
+- `flutter test`: **67/67 tests passed (100%)**
+  - `sugar_swap_test.dart`: 3 tests (savings math, tsp rounding, rank ordering)
+  - `ocr_label_parser_test.dart`: 5 tests (standard FSSAI table, decimal commas, whitespace, missing sugar null-safety, serving size regex)
+  - `smarter_swaps_card_test.dart`: 2 tests (recommendations rendering, empty state)
+  - `product_result_screen_test.dart`: 3 tests (swaps provider integration, portion toggles)
+  - Plus all 54 existing tests passing.
+- Device: Samsung Galaxy M31 (`RZ8N702ND4E`) running debug APK (`com.glucio.app`).
+- Live physical device screenshots captured in `docs/screenshots/`:
+  - `slice4_01_smarter_swaps.png`: Smarter Swaps card with lower-sugar biscuit alternatives.
+  - `slice4_02_goodday_swapped.png`: Swapped product view for Britannia Good Day.
+  - `slice4_03_add_product_ocr.png`: Add/Correct product screen with ML Kit OCR card.
+  - `slice4_04_add_product_portions.png`: Household portion editor and save button.
+  - `slice4_05_saved_product_result.png`: Updated product loaded directly from SQLite.
+
+
 
 

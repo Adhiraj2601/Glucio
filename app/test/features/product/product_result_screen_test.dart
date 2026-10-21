@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glucio/core/models/sugar_swap.dart';
 import 'package:glucio/data/models/portion.dart';
 import 'package:glucio/data/models/product.dart';
+import 'package:glucio/data/repositories/product_repository.dart';
 import 'package:glucio/features/product/presentation/product_not_found_screen.dart';
 import 'package:glucio/features/product/presentation/product_result_screen.dart';
 
@@ -80,13 +83,20 @@ void main() {
       verified: true,
     );
 
-    testWidgets('renders Parle-G with sentence hero, portion chips, and cubes',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ProductResultScreen(product: parleG),
+    Widget buildTestScreen(Product product) {
+      return ProviderScope(
+        overrides: [
+          lowerSugarSwapsProvider.overrideWith((ref, p) async => <SugarSwap>[]),
+        ],
+        child: MaterialApp(
+          home: ProductResultScreen(product: product),
         ),
       );
+    }
+
+    testWidgets('renders Parle-G with sentence hero, portion chips, and cubes',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildTestScreen(parleG));
       await tester.pumpAndSettle();
 
       // Check name and brand
@@ -109,11 +119,7 @@ void main() {
 
     testWidgets('displays Hidden Sugar Alert card for savory ketchup with high sugar',
         (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ProductResultScreen(product: ketchup),
-        ),
-      );
+      await tester.pumpWidget(buildTestScreen(ketchup));
       await tester.pumpAndSettle();
 
       expect(find.text('HIDDEN SUGAR ALERT'), findsOneWidget);
@@ -125,11 +131,7 @@ void main() {
 
     testWidgets('displays Sugar data missing state with Add or correct button when sugar is null',
         (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ProductResultScreen(product: missingSugarProduct),
-        ),
-      );
+      await tester.pumpWidget(buildTestScreen(missingSugarProduct));
       await tester.pumpAndSettle();
 
       expect(find.text('Sugar data missing'), findsOneWidget);
@@ -141,11 +143,7 @@ void main() {
 
     testWidgets('displays verified zero sugar product with no sugar sentence',
         (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ProductResultScreen(product: zeroSugarProduct),
-        ),
-      );
+      await tester.pumpWidget(buildTestScreen(zeroSugarProduct));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('has no sugar'), findsOneWidget);

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import '../../core/models/sugar_swap.dart';
 import '../../core/utils/portion_builder.dart';
 import '../datasources/local_product_database.dart';
 import '../models/product.dart';
@@ -320,6 +321,90 @@ class ProductRepository {
 
   /// Exposes all currently loaded seed products for testing/inspection.
   List<Product> getAllCachedProducts() => _seedCache.values.toList();
+
+  /// Saves or updates a user-contributed or corrected product.
+  Future<void> saveUserProduct(Product product) async {
+    await _localDb.saveProduct(product);
+    _seedCache[product.barcode] = product;
+  }
+
+  /// Returns up to [limit] lower-sugar alternatives for [product] within the same category group.
+  Future<List<SugarSwap>> getLowerSugarSwaps(Product product, {int limit = 3}) async {
+    await loadSeedProducts();
+
+    final allProducts = <String, Product>{};
+    for (final p in _seedCache.values) {
+      allProducts[p.barcode] = p;
+    }
+
+    try {
+      final userProds = await _localDb.getAllProducts();
+      for (final p in userProds) {
+        allProducts[p.barcode] = p;
+      }
+    } catch (_) {}
+
+    final currentSugar = product.sugarPer100;
+    final currentGroup = normalizeCategoryGroup(product.category);
+
+    final candidates = <Product>[];
+
+    for (final candidate in allProducts.values) {
+      if (candidate.barcode == product.barcode) continue;
+      if (candidate.sugarPer100 == null) continue;
+
+      final candidateGroup = normalizeCategoryGroup(candidate.category);
+      if (candidateGroup != currentGroup) continue;
+
+      if (currentSugar != null) {
+        if (candidate.sugarPer100! < currentSugar) {
+          candidates.add(candidate);
+        }
+      } else {
+        if (candidate.sugarPer100! <= 5.0) {
+          candidates.add(candidate);
+        }
+      }
+    }
+
+    // Sort by lowest sugar first
+    candidates.sort((a, b) => a.sugarPer100!.compareTo(b.sugarPer100!));
+
+    return candidates
+        .take(limit)
+        .map((swap) => SugarSwap.fromProducts(original: product, swap: swap))
+        .toList();
+  }
+
+  /// Normalizes product categories into comparable groups for swap matching.
+  static String normalizeCategoryGroup(String category) {
+    final c = category.toLowerCase().trim();
+    if (c.contains('biscuit') || c.contains('cookie') || c.contains('bakery') || c.contains('bread')) {
+      return 'biscuits';
+    }
+    if (c.contains('beverage') || c.contains('drink') || c.contains('juice') || c.contains('milk') || c.contains('tea') || c.contains('coffee') || c.contains('soda')) {
+      return 'beverages';
+    }
+    if (c.contains('namkeen') || c.contains('chip') || c.contains('crisp') || c.contains('noodle') || c.contains('snack')) {
+      return 'snacks';
+    }
+    if (c.contains('cereal') || c.contains('oat') || c.contains('grain')) {
+      return 'cereals';
+    }
+    if (c.contains('sweet') || c.contains('chocolate') || c.contains('confection') || c.contains('dessert')) {
+      return 'confectionery';
+    }
+    if (c.contains('sauce') || c.contains('ketchup') || c.contains('dip') || c.contains('chutney')) {
+      return 'sauces';
+    }
+    if (c.contains('health drink')) {
+      return 'health drinks';
+    }
+    if (c.contains('yogurt') || c.contains('curd') || c.contains('dairy')) {
+      return 'dairy';
+    }
+    return c;
+  }
 }
 
 /// Riverpod Provider for ProductRepository singleton.
@@ -330,4 +415,11 @@ final productRepositoryProvider = Provider<ProductRepository>((ref) {
 /// Riverpod Provider holding the diagnostic trace of the last lookup.
 final lastLookupTraceProvider = Provider<LookupTrace?>((ref) {
   return ref.watch(productRepositoryProvider).lastTrace;
+});
+
+/// Riverpod FutureProvider for lower-sugar swaps of a given product.
+final lowerSugarSwapsProvider =
+    FutureProvider.family<List<SugarSwap>, Product>((ref, product) async {
+  final repo = ref.watch(productRepositoryProvider);
+  return repo.getLowerSugarSwaps(product);
 });

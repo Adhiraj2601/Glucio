@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/glucio_theme.dart';
+import '../../../../core/utils/nutrition_label_ocr_parser.dart';
 import '../../../../core/utils/portion_builder.dart';
 import '../../../data/datasources/local_product_database.dart';
 import '../../../data/models/portion.dart';
@@ -44,6 +46,53 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 
   String _sugarBasis = 'per_100g';
   final List<Portion> _portions = [];
+  bool _isOcrScanning = false;
+  String? _ocrStatus;
+
+  Future<void> _runOcr(ImageSource source) async {
+    setState(() {
+      _isOcrScanning = true;
+      _ocrStatus = null;
+    });
+
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: source, imageQuality: 90);
+      if (picked == null) {
+        setState(() => _isOcrScanning = false);
+        return;
+      }
+
+      final result = await NutritionLabelOcrParser.recognizeAndParse(picked.path);
+      if (!mounted) return;
+
+      setState(() {
+        _isOcrScanning = false;
+        if (result.sugarPer100 != null) {
+          _sugarCtrl.text = result.sugarPer100!.toStringAsFixed(1);
+        }
+        if (result.addedSugarPer100 != null) {
+          _addedSugarCtrl.text = result.addedSugarPer100!.toStringAsFixed(1);
+        }
+        if (result.servingSize != null) {
+          _servingSizeCtrl.text = result.servingSize!.toStringAsFixed(0);
+          _populateCategoryDefaults(_categoryCtrl.text);
+        }
+
+        if (result.hasSugar) {
+          _ocrStatus = '✓ Extracted: ${result.sugarPer100}g sugar per 100g';
+        } else {
+          _ocrStatus = '⚠ Label text read, but sugar was not found. Please type it in below.';
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isOcrScanning = false;
+        _ocrStatus = 'Error reading photo: $e';
+      });
+    }
+  }
 
   final List<String> _categoryOptions = [
     'sauces',
@@ -254,6 +303,130 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Smart OCR Label Scanner Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4FBF7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: GlucioTheme.inkBlack, width: 2),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: GlucioTheme.inkBlack,
+                      offset: Offset(3, 3),
+                      blurRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.document_scanner_rounded, size: 22, color: GlucioTheme.inkBlack),
+                        SizedBox(width: 8),
+                        Text(
+                          'Scan Nutrition Label (OCR)',
+                          style: TextStyle(
+                            fontFamily: GlucioTheme.fontDisplay,
+                            fontSize: 16,
+                            color: GlucioTheme.inkBlack,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Take a photo of the nutrition facts table to auto-fill sugar, calories, and servings.',
+                      style: TextStyle(
+                        fontFamily: GlucioTheme.fontBody,
+                        fontSize: 11,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_isOcrScanning)
+                      const Row(
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: GlucioTheme.inkBlack),
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            'Reading label with Google ML Kit...',
+                            style: TextStyle(
+                              fontFamily: GlucioTheme.fontBody,
+                              fontSize: 11,
+                              color: GlucioTheme.inkBlack,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _runOcr(ImageSource.camera),
+                              icon: const Icon(Icons.camera_alt, size: 16),
+                              label: const Text('Take Photo'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: GlucioTheme.accentLime,
+                                foregroundColor: GlucioTheme.inkBlack,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: const BorderSide(color: GlucioTheme.inkBlack, width: 1.5),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontFamily: GlucioTheme.fontBody,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => _runOcr(ImageSource.gallery),
+                            icon: const Icon(Icons.photo_library, size: 16),
+                            label: const Text('Gallery'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: GlucioTheme.inkBlack,
+                              side: const BorderSide(color: GlucioTheme.inkBlack, width: 1.5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              textStyle: const TextStyle(
+                                fontFamily: GlucioTheme.fontBody,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (_ocrStatus != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        _ocrStatus!,
+                        style: TextStyle(
+                          fontFamily: GlucioTheme.fontBody,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _ocrStatus!.startsWith('✓')
+                              ? GlucioTheme.primaryGreen
+                              : Colors.deepOrange,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
               // Info Card
               Container(
                 padding: const EdgeInsets.all(16),

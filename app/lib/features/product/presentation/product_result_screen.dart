@@ -9,6 +9,7 @@ import '../../../data/repositories/product_repository.dart';
 import '../../log/presentation/providers/daily_tracker_providers.dart';
 import 'add_product_screen.dart';
 import 'widgets/debug_trace_panel.dart';
+import 'widgets/smarter_swaps_card.dart';
 import 'widgets/sugar_cube_widget.dart';
 import 'widgets/sugar_progress_bar.dart';
 
@@ -115,6 +116,26 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
           icon: const Icon(Icons.arrow_back, color: GlucioTheme.inkBlack),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Add or Correct Product Data',
+            icon: const Icon(Icons.edit_note_rounded, color: GlucioTheme.inkBlack, size: 28),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => AddProductScreen(
+                    initialBarcode: p.barcode,
+                    initialName: p.name,
+                    initialBrand: p.brand,
+                    initialCategory: p.category,
+                    initialPackSize: p.packSizeG,
+                    initialServingSize: p.servingSizeG,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -381,6 +402,19 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
               ),
               const SizedBox(height: 16),
             ],
+
+            // Smarter Swaps (Lower-sugar alternatives in same category)
+            SmarterSwapsCard(
+              product: p,
+              onSelectSwap: (swapProduct) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (_) => ProductResultScreen(product: swapProduct),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
 
             // Collapsed "Label details" accordion for raw numbers
             _buildLabelDetailsAccordion(p),
