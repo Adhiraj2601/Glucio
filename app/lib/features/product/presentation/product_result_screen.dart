@@ -8,6 +8,7 @@ import '../../../data/models/product.dart';
 import '../../../data/models/product_alert_verdict.dart';
 import '../../../data/models/user_preferences.dart';
 import '../../../data/repositories/product_repository.dart';
+import '../../compare/presentation/compare_screen.dart';
 import '../../log/presentation/providers/daily_tracker_providers.dart';
 import '../../preferences/presentation/preferences_screen.dart';
 import 'add_product_screen.dart';
@@ -176,7 +177,16 @@ class _ProductResultScreenState extends ConsumerState<ProductResultScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('${p.name} added to comparison (${compareList.length + 1}/4)'),
-                      duration: const Duration(seconds: 2),
+                      duration: const Duration(seconds: 3),
+                      action: SnackBarAction(
+                        label: 'COMPARE',
+                        textColor: GlucioTheme.accentLime,
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const CompareScreen()),
+                          );
+                        },
+                      ),
                     ),
                   );
                 } else {

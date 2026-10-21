@@ -4,6 +4,7 @@ import '../../../../core/models/sugar_swap.dart';
 import '../../../../core/theme/glucio_theme.dart';
 import '../../../../data/models/product.dart';
 import '../../../../data/repositories/product_repository.dart';
+import '../../../compare/presentation/compare_screen.dart';
 
 /// Neo-Brutalist card displaying lower-sugar alternatives in the same category.
 class SmarterSwapsCard extends ConsumerWidget {
@@ -133,7 +134,48 @@ class SmarterSwapsCard extends ConsumerWidget {
               }
 
               return Column(
-                children: swaps.map((swap) => _buildSwapItem(context, swap)).toList(),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ...swaps.map((swap) => _buildSwapItem(context, swap)),
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () {
+                      final notifier = ref.read(productCompareProvider.notifier);
+                      notifier.addProduct(product);
+                      for (final s in swaps) {
+                        notifier.addProduct(s.swapProduct);
+                      }
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const CompareScreen()),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: GlucioTheme.cardCream,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: GlucioTheme.inkBlack, width: 1.5),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.compare_arrows_rounded,
+                              size: 18, color: GlucioTheme.inkBlack),
+                          SizedBox(width: 6),
+                          Text(
+                            'Compare With Alternatives',
+                            style: TextStyle(
+                              fontFamily: GlucioTheme.fontBody,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: GlucioTheme.inkBlack,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               );
             },
           ),

@@ -1,4 +1,7 @@
 export 'off_repository.dart';
+import 'off_repository.dart';
+import '../../core/utils/product_alerts_engine.dart';
+import '../models/user_preferences.dart';
 import '../models/off_product_dto.dart';
 import '../models/scan_history_entry.dart';
 import 'dart:async';
@@ -278,8 +281,13 @@ class ProductRepository {
     _seedCache[product.barcode] = product;
   }
 
-  /// Returns up to [limit] lower-sugar alternatives for [product] within the same category group.
-  Future<List<SugarSwap>> getLowerSugarSwaps(Product product, {int limit = 3}) async {
+  /// Returns up to [limit] lower-sugar alternatives for [product] within the same category group,
+  /// filtered by user dietary preferences and ranked by sugar, Nutri-Score, and NOVA.
+  Future<List<SugarSwap>> getLowerSugarSwaps(
+    Product product, {
+    int limit = 3,
+    UserPreferences? preferences,
+  }) async {
     await loadSeedProducts();
 
     final allProducts = <String, Product>{};
@@ -317,8 +325,37 @@ class ProductRepository {
       }
     }
 
-    // Sort by lowest sugar first
-    candidates.sort((a, b) => a.sugarPer100!.compareTo(b.sugarPer100!));
+    // Filter out alternatives that violate mandatory user dietary preferences
+    if (preferences != null) {
+      candidates.removeWhere((c) {
+        final verdict = ProductAlertsEngine.evaluate(
+          preferences: preferences,
+          product: c,
+        );
+        return verdict.isMandatoryViolation;
+      });
+    }
+
+    // Primary sort: lowest sugar first
+    // Secondary sort: Nutri-Score (A < B < C < D < E) and NOVA (1 < 2 < 3 < 4) when sugar is close
+    candidates.sort((a, b) {
+      final sugarDiff = a.sugarPer100!.compareTo(b.sugarPer100!);
+      final absDiff = (a.sugarPer100! - b.sugarPer100!).abs();
+      if (absDiff > 1.0) {
+        return sugarDiff;
+      }
+
+      final aGrade = a.nutriScoreGrade?.toLowerCase() ?? 'z';
+      final bGrade = b.nutriScoreGrade?.toLowerCase() ?? 'z';
+      final gradeDiff = aGrade.compareTo(bGrade);
+      if (gradeDiff != 0) {
+        return gradeDiff;
+      }
+
+      final aNova = a.novaGroup ?? 99;
+      final bNova = b.novaGroup ?? 99;
+      return aNova.compareTo(bNova);
+    });
 
     return candidates
         .take(limit)
@@ -371,5 +408,7 @@ final lastLookupTraceProvider = Provider<LookupTrace?>((ref) {
 final lowerSugarSwapsProvider =
     FutureProvider.family<List<SugarSwap>, Product>((ref, product) async {
   final repo = ref.watch(productRepositoryProvider);
-  return repo.getLowerSugarSwaps(product);
+  final prefsAsync = ref.watch(userPreferencesProvider);
+  final prefs = prefsAsync.value;
+  return repo.getLowerSugarSwaps(product, preferences: prefs);
 });

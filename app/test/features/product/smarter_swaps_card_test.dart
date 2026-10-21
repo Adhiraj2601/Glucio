@@ -121,6 +121,54 @@ void main() {
       expect(find.text('Smarter Swaps'), findsOneWidget);
       expect(find.textContaining('Great choice!'), findsOneWidget);
     });
+
+    testWidgets('tapping Compare With Alternatives adds products to compare provider',
+        (tester) async {
+      late ProviderContainer container;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            lowerSugarSwapsProvider(highSugarProduct).overrideWith(
+              (ref) => [
+                SugarSwap.fromProducts(
+                  original: highSugarProduct,
+                  swap: lowerSugarSwap,
+                ),
+              ],
+            ),
+          ],
+          child: Consumer(
+            builder: (context, ref, child) {
+              container = ProviderScope.containerOf(context);
+              return MaterialApp(
+                home: Scaffold(
+                  body: SingleChildScrollView(
+                    child: SmarterSwapsCard(
+                      product: highSugarProduct,
+                      onSelectSwap: _dummyCallback,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final compareBtn = find.text('Compare With Alternatives');
+      expect(compareBtn, findsOneWidget);
+
+      await tester.tap(compareBtn);
+      await tester.pumpAndSettle();
+
+      final compareList = container.read(productCompareProvider);
+      expect(compareList.length, 2);
+      expect(compareList[0].barcode, highSugarProduct.barcode);
+      expect(compareList[1].barcode, lowerSugarSwap.barcode);
+    });
   });
 }
 
